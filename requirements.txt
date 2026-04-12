@@ -1,0 +1,4 @@
+librosa
+numpy
+pandas
+yt-dlp

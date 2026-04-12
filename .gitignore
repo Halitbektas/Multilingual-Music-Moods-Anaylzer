@@ -1,0 +1,6 @@
+temp_audio.mp3
+temp_audio.webm
+temp_audio.mp4
+songs/
+__pycache__/
+.DS_Store
