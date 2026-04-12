@@ -1,0 +1,13 @@
+numpy
+pandas
+scikit-learn
+
+spotipy
+
+sentence-transformers
+torch
+
+librosa
+matplotlib
+
+minisom
