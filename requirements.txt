@@ -1,7 +1,12 @@
+scikit-learn
+spotipy
+sentence-transformers
+torch
+matplotlib
+minisom
 librosa
 numpy
 pandas
 yt-dlp
 lyricsgenius
 langdetect
-pandas
