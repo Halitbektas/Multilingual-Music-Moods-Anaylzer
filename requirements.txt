@@ -1,3 +1,7 @@
+librosa
+numpy
+pandas
+yt-dlp
 lyricsgenius
 langdetect
 pandas
