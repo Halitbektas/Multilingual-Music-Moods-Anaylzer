@@ -1,0 +1,3 @@
+lyricsgenius
+langdetect
+pandas
