@@ -1,15 +1,12 @@
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-import pandas as pd
-import os
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
-
-
-
 def get_track_info(track_url):
-    auth_manager = SpotifyClientCredentials()
+    auth_manager = SpotifyClientCredentials(client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+                                            client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"))
     sp = spotipy.Spotify(auth_manager=auth_manager)
 
     try:
@@ -20,5 +17,3 @@ def get_track_info(track_url):
     except Exception as e:
         print(f"Error fetching track info: {e}")
         return None, None
-
-print(get_track_info("https://open.spotify.com/intl-tr/track/1mgoLJV5W6JSWanT5bgf3o?si=3d5a056bfdb84262"))

@@ -1,17 +1,22 @@
+from dotenv import load_dotenv
+from lyrics_pipeline import fetch_single_lyrics
+import os
+from audio_fetcher import process_song_automatically
+from spotipy_executer import get_track_info
+import pandas as pd
 
-from lyrics_pipeline import build_lyrics_dataset
+load_dotenv()
+
+GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
+test_song_url = "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+
+song_name, artist_name = get_track_info(test_song_url)
+
+if song_name and artist_name:
+    print(f"Şarkı Adı: {song_name}")
+    print(f"Sanatçı Adı: {artist_name}")
+    audio_data = process_song_automatically(song_name, artist_name)
+    lyrics_data = fetch_single_lyrics(song_name, artist_name, GENIUS_TOKEN)
 
 
-GENIUS_TOKEN = "GENIUS-TOKEN'INIZI_BURAYA_YAPISTIRIN"
-sarkilar = [
-    ("Saygımdan", "Bengü"),
-    ("505", "Arctic Monkeys")
-]
-
-
-df_lyrics = build_lyrics_dataset(sarkilar, GENIUS_TOKEN, "feature_fusion_lyrics.csv")
-
-
-print("\n--- BERT MİMARİSİNE GİDECEK VERİ ---")
-print(df_lyrics.head())
-
+### BU DOSYA SUAN KULLANILMAYACAK !!!

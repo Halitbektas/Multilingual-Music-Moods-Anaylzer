@@ -1,66 +1,93 @@
-# audio_fetcher.py
 import yt_dlp
 import os
+import librosa
+import numpy as np
+import pandas as pd
+
 
 def download_mp3(song_title, artist_name, output_folder="audio_files"):
-    """
-    YouTube üzerinden şarkıyı aratır, en iyi ses kalitesinde bulur ve MP3 olarak indirir.
-    
-    Parametreler:
-        song_title (str): Şarkı adı
-        artist_name (str): Sanatçı adı
-        output_folder (str): MP3'lerin kaydedileceği klasör adı
-        
-    Dönüş:
-        str: Başarılı olursa dosyanın tam yolunu, başarısız olursa None döndürür.
-    """
-    
-    # Eğer kaydedilecek klasör yoksa otomatik oluştur
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
-        
-    # YouTube'da arama yapacağımız metin (ytsearch1: sadece ilk ve en iyi sonucu getir demek)
-    search_query = f"ytsearch1:{artist_name} {song_title} official audio"
-    
-    # Dosyanın ismini "Sanatçı - Şarkı Adı.mp3" formatında ayarlıyoruz
-    # Windows dosya isimlerinde geçersiz olabilecek karakterleri temizlemek iyi bir pratiktir
-    safe_title = "".join([c for c in song_title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-    safe_artist = "".join([c for c in artist_name if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-    file_name = f"{safe_artist} - {safe_title}"
-    output_path = os.path.join(output_folder, f"{file_name}.%(ext)s")
 
-    # yt-dlp ayarları
+    search_term = f"{artist_name} {song_title}".strip()
+    search_query = f"ytsearch1:{search_term} official audio"
+
+    safe_name = "".join([c for c in search_term if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    file_name = safe_name.replace(' ', '_')
+    output_path = os.path.join(output_folder, f"{file_name}.%(ext)s")
+    final_mp3_path = os.path.join(output_folder, f"{file_name}.mp3")
+
+    if os.path.exists(final_mp3_path):
+        return final_mp3_path
+
+
     ydl_opts = {
-        'format': 'bestaudio/best', # Sadece sesi, en iyi kalitede al
-        'outtmpl': output_path,     # Çıktı adı ve konumu
-        'noplaylist': True,         # Oynatma listesi indirmeyi engelle
-        'quiet': True,              # Terminali gereksiz yazılarla doldurma
-        'no_warnings': True,
-        'postprocessors': [{        # Sesi MP3'e dönüştüren eklenti (FFmpeg gerektirir)
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192', # 192kbps Librosa frekans analizi için gayet yeterlidir
+        'format': 'bestaudio/best',  # Sadece sesi indirme
+        'outtmpl': output_path,  # Çıktı adı ve konumu
+        'noplaylist': True,  # Oynatma listesi indirme
+        'quiet': True,  # Terminali gereksiz yazılarla doldurma
+        'no_warnings': True,  # Uyarıları gizle
+        'postprocessors': [{  # Sesi MP3 formatına dönüştür
+            'key': 'FFmpegExtractAudio',  # FFmpeg kullanarak sesi çıkar
+            'preferredcodec': 'mp3',  # MP3 formatında kaydet
+            'preferredquality': '192',  # 192kbps
         }],
     }
 
-    print(f"🎵 Ses İndiriliyor: {artist_name} - {song_title} ...", end=" ")
-    
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([search_query])
-            
-        # İnen dosyanın son (MP3) yolunu oluştur
-        final_mp3_path = os.path.join(output_folder, f"{file_name}.mp3")
-        print("[BAŞARILI]")
         return final_mp3_path
-        
+
     except Exception as e:
         print(f"[HATA] İndirilemedi. Sebep: {str(e)}")
         return None
 
-# === TEST BÖLÜMÜ ===
-if __name__ == "__main__":
-    # Test için bir şarkı deneyelim
-    indirme_yolu = download_mp3("Saygımdan", "Bengü")
-    if indirme_yolu:
-        print(f"Dosya şu konuma kaydedildi: {os.path.abspath(indirme_yolu)}")
+def process_song_automatically(song_name, artist_name=""):
+    output_csv = "music_features.csv"
+
+    mp3_path = download_mp3(song_name, artist_name)
+
+    if mp3_path is None:
+        print(f"HATA: {song_name} indirilemedi, atlanıyor.")
+        return
+
+    try:
+
+        y, sr = librosa.load(mp3_path, duration=30)
+        tempo_output = librosa.beat.beat_track(y=y, sr=sr) # Librosa'nın yeni sürümlerinde tempo_output[0] bir array
+        tempo_value = float(np.mean(tempo_output[0])) # Tempo değerini tek bir float olarak almak için mean alıyoruz
+        rms = float(np.mean(librosa.feature.rms(y=y))) # RMS değerini tek bir float olarak almak için mean alıyoruz
+        spec_cent = float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
+
+        features = {
+            "song_id": f"{artist_name}_{song_name}".replace(" ", "_"),
+            "tempo": tempo_value,
+            "energy_rms": rms,
+            "spectral_centroid": spec_cent
+        }
+
+        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        for i, m in enumerate(np.mean(mfccs, axis=1)):
+            features[f"mfcc_{i}"] = m
+
+        chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+        for i, c in enumerate(np.mean(chroma, axis=1)):
+            features[f"chroma_{i}"] = c
+
+        df_new = pd.DataFrame([features])
+        if not os.path.isfile(output_csv):
+            df_new.to_csv(output_csv, index=False)
+        else:
+            df_new.to_csv(output_csv, mode='a', header=False, index=False)
+
+        print(f"BAŞARILI: {song_name} verileri CSV'ye eklendi.")
+        return features
+
+    except Exception as e:
+        print(f"HATA Oluştu: {e}")
+
+    finally:
+        if mp3_path and os.path.exists(mp3_path):
+            os.remove(mp3_path)
+            print(f"Temizlik: {mp3_path} silindi.")
