@@ -4,11 +4,13 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-def get_track_info(track_url):
-    auth_manager = SpotifyClientCredentials(client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-                                            client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"))
-    sp = spotipy.Spotify(auth_manager=auth_manager)
 
+auth_manager = SpotifyClientCredentials(
+    client_id=os.getenv("SPOTIPY_CLIENT_ID"),
+    client_secret=os.getenv("SPOTIPY_CLIENT_SECRET")
+)
+sp = spotipy.Spotify(auth_manager=auth_manager)
+def get_track_info(track_url):
     try:
         track_info = sp.track(track_url)
         song_name = track_info['name']

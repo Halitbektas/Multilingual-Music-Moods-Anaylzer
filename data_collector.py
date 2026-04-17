@@ -9,14 +9,21 @@ from nlp_pipeline import get_bert_embeddings
 load_dotenv()
 GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
 
-
 def run_collector(track_urls, output_csv="raw_music_dataset.csv"):
+    existing_songs = set()
+    if os.path.isfile(output_csv):
+        df_existing = pd.read_csv(output_csv, usecols=['title', 'artist'])
+        existing_songs = set(zip(df_existing['title'], df_existing['artist']))
     for url in track_urls:
         try:
             print(f"Processing URL: {url}")
             song_name, artist_name = get_track_info(url)
             if not song_name or not artist_name:
                 print(f"Skipping URL due to missing info: {url}")
+                continue
+
+            if (song_name, artist_name) in existing_songs:
+                print(f"Skipping URL as it already exists in dataset: {url}")
                 continue
 
             audio_data = process_song_automatically(song_name, artist_name)
@@ -50,9 +57,10 @@ def run_collector(track_urls, output_csv="raw_music_dataset.csv"):
             print(f"Error processing URL {url}: {e}")
 
 
+
 if __name__ == "__main__":
 
     test_links = [
-        "https://open.spotify.com/intl-tr/track/1mgoLJV5W6JSWanT5bgf3o?si=bfdbeb86b14b4da8",
+        "https://open.spotify.com/intl-tr/track/1Sa1IX2uXnAuJkmqg5r3lj?si=1890eaa626ee4a2e"
     ]
     run_collector(test_links)
