@@ -1,4 +1,3 @@
-# lyrics_pipeline.py
 import lyricsgenius
 from langdetect import detect, LangDetectException
 import re
@@ -12,15 +11,8 @@ def clean_lyrics(raw_lyrics):
     return text.lower()                     
 
 def clean_song_title(title):
-    """
-    Şarkı adlarındaki 'Remastered', 'Mix' gibi Genius aramasını bozan ekleri temizler.
-    """
-    # 1. " - Remastered 2019", " - Radio Mix" gibi " - " sonrasındaki versiyon eklerini siler
     cleaned = re.sub(r'(?i)\s*-\s*(remaster|mix|version|edit|live|radio).*', '', title)
-    
-    # 2. "(Remastered)", "(Acoustic Version)" gibi parantez içindeki ekleri siler
     cleaned = re.sub(r'(?i)\s*\(.*(remaster|mix|version|edit|live|radio).*\)', '', cleaned)
-    
     return cleaned.strip()
 
 def fetch_single_lyrics(title, artist, api_token):
