@@ -11,18 +11,33 @@ def clean_lyrics(raw_lyrics):
     text = re.sub(r'\s+', ' ', text).strip()  
     return text.lower()                     
 
+def clean_song_title(title):
+    """
+    Şarkı adlarındaki 'Remastered', 'Mix' gibi Genius aramasını bozan ekleri temizler.
+    """
+    # 1. " - Remastered 2019", " - Radio Mix" gibi " - " sonrasındaki versiyon eklerini siler
+    cleaned = re.sub(r'(?i)\s*-\s*(remaster|mix|version|edit|live|radio).*', '', title)
+    
+    # 2. "(Remastered)", "(Acoustic Version)" gibi parantez içindeki ekleri siler
+    cleaned = re.sub(r'(?i)\s*\(.*(remaster|mix|version|edit|live|radio).*\)', '', cleaned)
+    
+    return cleaned.strip()
+
 def fetch_single_lyrics(title, artist, api_token):
     genius = lyricsgenius.Genius(api_token)
     genius.verbose = False
     genius.remove_playlists = True 
     genius.timeout = 15
     genius.retries = 3
+    
+    search_title = clean_song_title(title)
 
     try:
-        song = genius.search_song(title, artist)
+        song = genius.search_song(search_title, artist)
 
         if song is None:
-            print("[HATA: Bulunamadı]")
+            
+            print(f"[HATA: Bulunamadı] Aranılan: {artist} - {search_title}")
             return None
 
         lyrics_text = song.lyrics
@@ -35,7 +50,7 @@ def fetch_single_lyrics(title, artist, api_token):
         if detected_lang in ['en', 'tr']:
             cleaned_text = clean_lyrics(lyrics_text)
             return {
-                "title": song.title,
+                "title": song.title,  
                 "artist": song.artist,
                 "detected_language": detected_lang,
                 "clean_lyrics": cleaned_text
