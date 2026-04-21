@@ -11,3 +11,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+/.cache
+Figure_1.png
+MMMA_Massive_Dataset_AutoSave.csv
+MMMA_Direct_Tracks_Dataset.csv

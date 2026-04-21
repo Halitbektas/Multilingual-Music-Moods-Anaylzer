@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from spotipy_executer import get_track_info
 from audio_fetcher import process_song_automatically
 from lyrics_pipeline import fetch_single_lyrics
-from nlp_pipeline import get_bert_embeddings
+from nlp_pipeline import get_embeddings
 
 load_dotenv()
 GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
@@ -36,7 +36,7 @@ def run_collector(track_urls, output_csv="raw_music_dataset.csv"):
                 print(f"Skipping URL due to lyrics fetching failure: {url}")
                 continue
 
-            embedding = get_bert_embeddings(lyrics_res['clean_lyrics'])
+            embedding = get_embeddings(lyrics_res['clean_lyrics'])
             nlp_features = {f"bert_emb_{i}": val for i, val in enumerate(embedding)}
 
             final_row = {
@@ -61,6 +61,6 @@ def run_collector(track_urls, output_csv="raw_music_dataset.csv"):
 if __name__ == "__main__":
 
     test_links = [
-        "https://open.spotify.com/intl-tr/track/1Sa1IX2uXnAuJkmqg5r3lj?si=1890eaa626ee4a2e"
+
     ]
     run_collector(test_links)
