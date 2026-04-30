@@ -89,6 +89,12 @@ def get_tracks_by_search_terms(total_goal=20000):
                 print(f"⚠️ Beklenmeyen Hata: {e}")
                 break
 
+# BU SATIRI SİL VEYA YORUMA AL:
+# get_tracks_by_search_terms(total_goal=20000)
 
-get_tracks_by_search_terms(total_goal=20000)
-print(f"\n🏁 İşlem tamam! Verilerin {CSV_FILENAME} dosyasında güvende.")
+# YERİNE BUNU EKLE:
+if __name__ == "__main__":
+    # Sadece bu dosyayı (spotipy_executer.py) çalıştırırsan
+    # aşağıdaki kod devreye girer ve 20 bin şarkı ismi toplar.
+    get_tracks_by_search_terms(total_goal=20000)
+    print(f"\n🏁 İşlem tamam! Verilerin {CSV_FILENAME} dosyasında güvende.")
