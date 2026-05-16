@@ -43,11 +43,7 @@ let loadingIndex = 0;
 let currentAnalysis = null;
 
 // API base URL — backend'in nerede koştuğuna göre değiştir
-const API_BASE = (() => {
-  // Aynı host'tan serve ediliyorsa boş bırak (relative); değilse localhost:8000
-  if (window.location.port === '8000') return '';
-  return 'http://localhost:8000';
-})();
+const API_BASE = '';
 
 
 // ── 2) API katmanı ────────────────────────────────────────────────────────

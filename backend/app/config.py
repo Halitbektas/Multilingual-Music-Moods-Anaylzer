@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     som_db_csv: Path = MAIN_PROJECT_ROOT / "som_results" / "som_music_database_v2.csv"
     
     # Veriseti de ana dizinden okunuyor
-    raw_data_csv: Path = MAIN_PROJECT_ROOT / "raw_music_dataset_v2.csv"
+    raw_data_csv: Path = MAIN_PROJECT_ROOT / "som_results" / "raw_music_data_v2.csv"
 
     # ── CORS ────────────────────────────────────────────────────────────────
     # Üretimde gerçek domain'inle değiştir.

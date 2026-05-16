@@ -17,6 +17,9 @@ Uçtaki endpoint'ler servislere delege eder; controller-service ayrımı korunur
 from contextlib import asynccontextmanager
 import logging
 
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -177,3 +180,13 @@ def journey(req: JourneyRequest):
     return journey_service.generate(
         req.start_x, req.start_y, req.end_x, req.end_y, req.steps
     )
+
+# API dışındaki tüm istekleri 'frontend' klasörüne yönlendirir
+# Tüm /api/... rotalarından SONRA (dosyanın en altına) ekle:
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
+# Ana dizine (/) girildiğinde doğrudan index.html'i aç
+@app.get("/")
+async def serve_index():
+    # Klasör yolunu kendi proje yapına göre ayarlayabilirsin
+    return FileResponse("frontend/index.html")

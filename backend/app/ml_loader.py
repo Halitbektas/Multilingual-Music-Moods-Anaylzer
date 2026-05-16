@@ -64,7 +64,7 @@ class MLState:
             self.df_raw = pd.read_csv(settings.raw_data_csv)
         else:
             logger.warning(
-                "raw_music_dataset.csv bulunamadı (%s). Musical-DNA özelliği "
+                "raw_music_dataset_v2.csv bulunamadı (%s). Musical-DNA özelliği "
                 "şarkı bazlı tarafta cell-average ile sınırlı çalışacak.",
                 settings.raw_data_csv,
             )
