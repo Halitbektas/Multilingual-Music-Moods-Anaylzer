@@ -47,25 +47,46 @@ const API_BASE = '';
 
 
 // ── 2) API katmanı ────────────────────────────────────────────────────────
+// ── 2) API katmanı ────────────────────────────────────────────────────────
 async function apiFetch(path, options = {}) {
+  const timeout = options.timeout || 30000; // Varsayılan 30 saniye
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
   const url = API_BASE + path;
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      detail = body.detail || JSON.stringify(body);
-    } catch { /* yoksay */ }
-    throw new Error(detail);
+  try {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      signal: controller.signal,
+      ...options,
+    });
+    clearTimeout(id);
+
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const body = await res.json();
+        detail = body.detail || JSON.stringify(body);
+      } catch { /* yoksay */ }
+      throw new Error(detail);
+    }
+    return res.json();
+  } catch (err) {
+    clearTimeout(id);
+    if (err.name === 'AbortError') {
+      throw new Error('İstek zaman aşımına uğradı (Analiz çok uzun sürdü, lütfen tekrar deneyin).');
+    }
+    throw err;
   }
-  return res.json();
 }
 
 const API = {
-  analyze: (payload) => apiFetch('/api/analyze', { method: 'POST', body: JSON.stringify(payload) }),
+  // Analiz işlemi yeni şarkılarda 60 saniye sürebileceği için timeout'u 90 sn yapıyoruz
+  analyze: (payload) => apiFetch('/api/analyze', { 
+      method: 'POST', 
+      body: JSON.stringify(payload),
+      timeout: 90000 // 90 Saniye
+  }),
   neighbors: (x, y, limit = 12, excludeId = null) => {
     const params = new URLSearchParams({ x, y, limit, enrich: 'true' });
     if (excludeId) params.set('exclude_song_id', excludeId);
@@ -117,6 +138,8 @@ function clearError() { errorBanner.classList.add('hidden'); }
 
 
 // ── 4) Loading state ──────────────────────────────────────────────────────
+let loadingSeconds = 0; // Geçen saniyeyi tutmak için
+
 function updateLoadingStep(index) {
   loadingSteps.forEach((step, i) => {
     step.classList.toggle('active', i === index);
@@ -129,7 +152,12 @@ function updateLoadingStep(index) {
 function resetLoading() {
   if (loadingTimer) clearInterval(loadingTimer);
   loadingIndex = 0;
+  loadingSeconds = 0;
   updateLoadingStep(0);
+  
+  // Varsa eski bilgilendirme mesajını temizle
+  const hint = $('aiLoadingHint');
+  if (hint) hint.remove();
 }
 
 function showLoadingState() {
@@ -138,20 +166,42 @@ function showLoadingState() {
   resultsSection.classList.add('hidden');
   loadingState.classList.remove('hidden');
   resetLoading();
+
   loadingTimer = setInterval(() => {
-    loadingIndex += 1;
-    if (loadingIndex < loadingSteps.length) {
-      updateLoadingStep(loadingIndex);
+    loadingSeconds += 1;
+    
+    // Animasyonu her 1 saniyede bir kademe ilerlet
+    if (loadingIndex < loadingSteps.length - 1) {
+        loadingIndex += 1;
+        updateLoadingStep(loadingIndex);
     } else {
-      clearInterval(loadingTimer);
-      progressFill.style.width = '94%';
+        progressFill.style.width = '94%'; // Sonda bekle
     }
-  }, 600);
+
+    // 4 Saniyeyi geçtiyse (Şarkı DB'de yok demektir, AI devreye girmiştir)
+    if (loadingSeconds === 4) {
+        const hint = document.createElement('div');
+        hint.id = 'aiLoadingHint';
+        hint.innerHTML = '✨ <b>Yapay Zeka Devrede!</b><br>Şarkı indiriliyor ve sözleri analiz ediliyor. Bu işlem 30-60 saniye sürebilir, lütfen sekmeden ayrılmayın...';
+        
+        // Estetik ayarlar (Kendi CSS sınıflarına göre değiştirebilirsin)
+        hint.style.color = '#00e4a8';
+        hint.style.marginTop = '1.5rem';
+        hint.style.fontSize = '0.95rem';
+        hint.style.textAlign = 'center';
+        hint.style.lineHeight = '1.5';
+        hint.style.animation = 'pulse 2s infinite';
+        
+        loadingState.appendChild(hint);
+    }
+  }, 1000); // 600ms yerine 1 saniyeye çıkardık
 }
 
 function hideLoading() {
   if (loadingTimer) clearInterval(loadingTimer);
   loadingState.classList.add('hidden');
+  const hint = $('aiLoadingHint');
+  if (hint) hint.remove();
 }
 
 
@@ -172,6 +222,13 @@ function renderAnalysis(data) {
   $('artistTitle').textContent = data.song.artist;
   $('sourceValue').textContent = data.song.source;
   $('languageValue').textContent = languageLabel(data.song.language);
+
+  const sourceEl = $('sourceValue');
+  if (data.song.source === 'on_the_fly') {
+    sourceEl.innerHTML = '<span style="background: rgba(0, 228, 168, 0.2); color: #00e4a8; padding: 2px 8px; border-radius: 12px; font-weight: bold;">✨ Yapay Zeka (Anlık)</span>';
+  } else {
+    sourceEl.textContent = 'Veritabanı';
+  }
 
   // Album art + preview
   const albumArt = $('albumArt');
@@ -208,10 +265,6 @@ function renderAnalysis(data) {
   marker.style.setProperty('--marker-x', `${px}%`);
   marker.style.setProperty('--marker-y', `${py}%`);
 
-  // Charts
-  renderMoodDistribution(data.mood_distribution);
-  renderLyricsChart(data.lyrics);
-
   // Journey planner: başlangıç hücresini kilitle
   const journeyStart = $('journeyStart');
   journeyStart.textContent = `(${data.coordinates.x}, ${data.coordinates.y})`;
@@ -236,8 +289,6 @@ function languageLabel(code) {
 
 // ── 6) Charts ─────────────────────────────────────────────────────────────
 const radarLabels = ['Enerji', 'Tempo', 'Parlaklık', 'MFCC', 'Tını', 'Renk'];
-const moodLabels = ['Mutlu', 'Enerjik', 'Sakin', 'Melankolik', 'Nötr'];
-const moodColors = ['#fbbf24', '#19c38a', '#18c7ff', '#a855f7', '#7a8699'];
 
 function renderRadar(songValues, cellAverages = null) {
   const svg = $('radarChart');
@@ -306,44 +357,6 @@ function appendSVG(parent, tag, attrs, text = null) {
   if (text !== null) el.textContent = text;
   parent.appendChild(el);
   return el;
-}
-
-function renderMoodDistribution(mood) {
-  const container = $('moodBars');
-  container.innerHTML = '';
-  const values = [mood.happy, mood.energetic, mood.calm, mood.melancholic, mood.neutral];
-  values.forEach((value, i) => {
-    const row = document.createElement('div');
-    row.className = 'mood-row';
-    row.innerHTML = `
-      <span class="label">${moodLabels[i]}</span>
-      <div class="mood-track">
-        <span class="mood-fill" style="width:${value}%; background:${moodColors[i]}"></span>
-      </div>
-      <span class="mood-value">${Math.round(value)}</span>`;
-    container.appendChild(row);
-  });
-}
-
-function renderLyricsChart(lyrics) {
-  const container = $('lyricsBars');
-  container.innerHTML = '';
-  const items = [
-    ['Şarkı Sözü Pozitifliği', lyrics.positivity],
-    ['Duygusal Derinlik', lyrics.emotional_depth],
-    ['Anlatım Tonu', lyrics.narrative_tone],
-  ];
-  items.forEach(([label, value]) => {
-    const item = document.createElement('div');
-    item.className = 'vertical-item';
-    item.innerHTML = `
-      <div class="vertical-score">${Math.round(value)}</div>
-      <div class="vertical-bar-wrap">
-        <div class="vertical-bar" style="height:${value}%"></div>
-      </div>
-      <div class="vertical-label">${label}</div>`;
-    container.appendChild(item);
-  });
 }
 
 
@@ -415,30 +428,49 @@ function makeNeighborCard(n) {
   return card;
 }
 
+function renderWordCloudWords(words) {
+  const wc = $('wordCloud');
+  wc.innerHTML = '';
+  if (!words.length) {
+    wc.innerHTML = '<span class="empty-state">Kelime bulutu için yeterli veri yok.</span>';
+    return;
+  }
+  const maxWeight = words[0].weight;
+  words.forEach(({ word, weight }) => {
+    const ratio = weight / maxWeight;
+    const fontSize = 14 + ratio * 38;
+    const hue = 160 + Math.floor(ratio * 60);
+    const span = document.createElement('span');
+    span.className = 'wc-item';
+    span.textContent = word;
+    span.style.fontSize = `${fontSize.toFixed(1)}px`;
+    span.style.color = `hsl(${hue}, 70%, 65%)`;
+    span.style.opacity = (0.55 + ratio * 0.45).toFixed(2);
+    span.title = `${word} — ${weight} kez geçti`;
+    wc.appendChild(span);
+  });
+}
+
 async function loadWordCloud(x, y) {
   const wc = $('wordCloud');
+  const heading = document.querySelector('#wordCloudCard h3');
+
+  // Yeni şarkılarda Genius'tan alınan sözlerle anlık kelime bulutu
+  if (currentAnalysis?.lyrics_wordcloud?.length) {
+    if (heading) heading.textContent = 'Bu Şarkının Kelime Bulutu';
+    renderWordCloudWords(currentAnalysis.lyrics_wordcloud);
+    return;
+  }
+
+  if (heading) heading.textContent = 'Bu Hücrenin Kelime Bulutu';
   wc.innerHTML = '<span class="empty-state">Yükleniyor…</span>';
   try {
     const res = await API.wordcloud(x, y, 60);
-    wc.innerHTML = '';
     if (!res.words.length) {
       wc.innerHTML = '<span class="empty-state">Bu hücredeki şarkıların temizlenmiş sözleri henüz veri setinde değil.</span>';
       return;
     }
-    const maxWeight = res.words[0].weight;
-    res.words.forEach(({ word, weight }) => {
-      const ratio = weight / maxWeight;
-      const fontSize = 14 + ratio * 38;       // 14px → 52px
-      const hue = 160 + Math.floor(ratio * 60); // yeşil-cyan-purple aralığı
-      const span = document.createElement('span');
-      span.className = 'wc-item';
-      span.textContent = word;
-      span.style.fontSize = `${fontSize.toFixed(1)}px`;
-      span.style.color = `hsl(${hue}, 70%, 65%)`;
-      span.style.opacity = (0.55 + ratio * 0.45).toFixed(2);
-      span.title = `${word} — ${weight} kez geçti`;
-      wc.appendChild(span);
-    });
+    renderWordCloudWords(res.words);
   } catch (e) {
     wc.innerHTML = `<span class="empty-state">Kelime bulutu yüklenemedi: ${escapeHtml(e.message)}</span>`;
   }

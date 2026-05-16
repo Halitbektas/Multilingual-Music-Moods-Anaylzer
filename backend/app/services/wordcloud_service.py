@@ -72,6 +72,18 @@ STOP = TR_STOP | EN_STOP
 _WORD_RE = re.compile(r"[a-zA-ZçÇğĞıİöÖşŞüÜ]+", re.UNICODE)
 
 
+def compute_from_text(text: str, top_n: int = 60) -> list[WordFrequency]:
+    """Tek bir şarkı sözü metninden kelime frekansı listesi döner."""
+    counter: Counter[str] = Counter()
+    for tok in _WORD_RE.findall(text.lower()):
+        if len(tok) <= 2:
+            continue
+        if tok in STOP:
+            continue
+        counter[tok] += 1
+    return [WordFrequency(word=w, weight=c) for w, c in counter.most_common(top_n)]
+
+
 def compute(x: int, y: int, top_n: int = 60) -> WordCloudResponse:
     db = ml_state.df_db
     raw = ml_state.df_raw
