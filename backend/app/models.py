@@ -37,8 +37,8 @@ class SongInfo(BaseModel):
     song_id: str
     title: str
     artist: str
-    language: str | None = None
-    source: Literal["Spotify", "Manuel Giriş", "Yeni Analiz"]
+    language: str
+    source: str  
     spotify_preview_url: str | None = None
     album_art_url: str | None = None
     spotify_url: str | None = None
@@ -54,28 +54,30 @@ class MoodPrediction(BaseModel):
 
 class AudioFeatures(BaseModel):
     """Radar grafiğindeki eksenler. 0-100 arası normalize."""
-    energy: float
-    valence: float
-    danceability: float
-    acousticness: float
     tempo: float
-    loudness: float
-
-
-class MoodDistribution(BaseModel):
-    """Hücredeki/şarkıdaki ruh hali dağılımı (yüzde)."""
-    happy: float
-    energetic: float
-    calm: float
-    melancholic: float
-    neutral: float
+    energy_rms: float
+    spectral_centroid: float
+    energy: float | None = None
+    valence: float | None = None
+    danceability: float | None = None
+    acousticness: float | None = None
+    loudness: float | None = None
 
 
 class LyricsAnalysis(BaseModel):
     """Şarkı sözü duygu skorları (0-100)."""
-    positivity: float       # şarkı sözü pozitifliği
-    emotional_depth: float  # duygusal derinlik
-    narrative_tone: float   # anlatım tonu
+    language: str
+    word_count: int
+
+    # SAHTE VERİ GİTMESİN DİYE İSTEĞE BAĞLI (OPTIONAL) YAPTIĞIMIZ ALANLAR:
+    positivity: float | None = None
+    emotional_depth: float | None = None
+    narrative_tone: float | None = None
+
+
+class WordFrequency(BaseModel):
+    word: str
+    weight: int
 
 
 class AnalyzeResponse(BaseModel):
@@ -83,8 +85,8 @@ class AnalyzeResponse(BaseModel):
     coordinates: Coordinates
     mood: MoodPrediction
     audio_features: AudioFeatures
-    mood_distribution: MoodDistribution
     lyrics: LyricsAnalysis
+    lyrics_wordcloud: list[WordFrequency] | None = None
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -124,11 +126,6 @@ class MusicalDNAResponse(BaseModel):
 # ═════════════════════════════════════════════════════════════════════════════
 # /api/cell/wordcloud
 # ═════════════════════════════════════════════════════════════════════════════
-class WordFrequency(BaseModel):
-    word: str
-    weight: int
-
-
 class WordCloudResponse(BaseModel):
     cell: Coordinates
     songs_aggregated: int

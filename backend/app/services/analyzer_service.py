@@ -23,11 +23,10 @@ import pandas as pd
 from app.ml_loader import ml_state
 from app.models import (
     AnalyzeRequest, AnalyzeResponse, AudioFeatures,
-    Coordinates, LyricsAnalysis, MoodDistribution, MoodPrediction,
+    Coordinates, LyricsAnalysis, MoodPrediction,
     SongInfo,
 )
 from app.services import spotify_service
-
 
 logger = logging.getLogger("mmma.analyzer")
 
@@ -74,28 +73,6 @@ def _quadrant_label(x: int, y: int, grid_x: int, grid_y: int) -> tuple[str, str,
     ]
     label, footnote = matrix[row][col]
     return label, footnote
-
-
-def _mood_distribution_for_cell(x: int, y: int, grid_x: int, grid_y: int) -> MoodDistribution:
-    """Quadrant'a göre dağılım. Eğitimden gerçek dağılım çıkardıysan onunla değiştir."""
-    third_x = grid_x / 3
-    third_y = grid_y / 3
-    col = 0 if x < third_x else (1 if x < 2 * third_x else 2)
-    row = 0 if y < third_y else (1 if y < 2 * third_y else 2)
-
-    # Köşeler bariz, merkez nötr
-    presets = {
-        (0, 0): MoodDistribution(happy=8, energetic=58, calm=12, melancholic=10, neutral=12),
-        (0, 1): MoodDistribution(happy=42, energetic=38, calm=8, melancholic=5, neutral=7),
-        (0, 2): MoodDistribution(happy=55, energetic=22, calm=10, melancholic=5, neutral=8),
-        (1, 0): MoodDistribution(happy=12, energetic=34, calm=34, melancholic=10, neutral=10),
-        (1, 1): MoodDistribution(happy=18, energetic=22, calm=22, melancholic=18, neutral=20),
-        (1, 2): MoodDistribution(happy=28, energetic=12, calm=22, melancholic=28, neutral=10),
-        (2, 0): MoodDistribution(happy=8, energetic=10, calm=58, melancholic=14, neutral=10),
-        (2, 1): MoodDistribution(happy=10, energetic=8, calm=32, melancholic=40, neutral=10),
-        (2, 2): MoodDistribution(happy=5, energetic=6, calm=18, melancholic=62, neutral=9),
-    }
-    return presets[(row, col)]
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -198,6 +175,7 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
     # ── 1) Şarkıyı bul ───────────────────────────────────────────────────
     spotify_meta: dict | None = None
     db_row = None
+    track_id = None # track_id'yi scope dışında da kullanabilmek için başta tanımlıyoruz
 
     if req.spotify_url:
         track_id = spotify_service.extract_track_id(req.spotify_url)
@@ -218,37 +196,49 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
             db_row = ml_state.find_song(
                 title=spotify_meta["title"], artist=spotify_meta["artist"]
             )
-        source = "Spotify"
+        source = "database" # Önceden "Spotify" idi, DB'den geldiğini netleştirmek daha iyi olabilir
 
     else:
         db_row = ml_state.find_song(title=req.song, artist=req.artist)
-        source = "Manuel Giriş"
+        source = "database"
         # Spotify'da da arayalım — preview için
         spotify_meta = spotify_service.search_track(req.artist or "", req.song or "")
 
+    # ── 2) VERİTABANINDA YOKSA: ON-THE-FLY ANALİZ BAŞLAT ─────────────────
     if db_row is None:
-        # MVP: on-the-fly tahmin henüz canlı değil
-        raise NotFoundError(
-            "Şarkı veritabanında değil. Bu sürümde sadece "
-            "veritabanındaki şarkılar analiz edilebiliyor. "
-            "Yakında: yeni şarkıları on-the-fly indirip yerleştirme."
+        logger.info(f"Şarkı veritabanında bulunamadı. Anlık analiz başlatılıyor...")
+        
+        # DÖNGÜSEL İÇE AKTARMAYI ENGELLEMEK İÇİN İMPORTU BURADA YAPIYORUZ
+        from app.services import new_song_service 
+        
+        # Meta verilerini toparla (Spotify URL'den gelmemişse req içinden al)
+        actual_title = spotify_meta["title"] if spotify_meta else req.song
+        actual_artist = spotify_meta["artist"] if spotify_meta else req.artist
+        
+        # Hata fırlatmak yerine doğrudan yeni servise yönlendirip dönen sonucu API'ye iletiyoruz
+        return new_song_service.analyze_new_song_on_the_fly(
+            song_id=track_id,
+            title=actual_title,
+            artist=actual_artist,
+            spotify_url=req.spotify_url
         )
+        # Hata fırlatmak yerine doğrudan yeni servise yönlendirip dönen sonucu API'ye iletiyoruz
+        
 
-    # ── 2) Koordinat & hücre etiketi ─────────────────────────────────────
+    # ── 3) VERİTABANINDA VARSA: MEVCUT HIZLI AKIŞTAN DEVAM ET ────────────
     x, y = int(db_row["som_x"]), int(db_row["som_y"])
     grid_x, grid_y = ml_state.som_x, ml_state.som_y
     mood_label, footnote = _quadrant_label(x, y, grid_x, grid_y)
     conf, intensity = _confidence_for_cell(x, y)
 
-    # ── 3) Audio + lyrics özellikleri ───────────────────────────────────
-    song_id = str(db_row["song_id"])
-    audio = _audio_features_for_song(song_id)
-    lyrics = _lyrics_scores_for_song(song_id)
-    mood_dist = _mood_distribution_for_cell(x, y, grid_x, grid_y)
+    # ── 4) Audio + lyrics özellikleri ───────────────────────────────────
+    song_id_db = str(db_row["song_id"])
+    audio = _audio_features_for_song(song_id_db)
+    lyrics = _lyrics_scores_for_song(song_id_db)
 
-    # ── 4) Song info — Spotify zenginleştirmesi varsa kullan ────────────
+    # ── 5) Song info — Spotify zenginleştirmesi varsa kullan ────────────
     song_info = SongInfo(
-        song_id=song_id,
+        song_id=song_id_db,
         title=str(db_row["title"]),
         artist=str(db_row["artist"]),
         language=str(db_row.get("language") or ""),
@@ -266,6 +256,5 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
             intensity=intensity, footnote=footnote,
         ),
         audio_features=audio,
-        mood_distribution=mood_dist,
         lyrics=lyrics,
     )

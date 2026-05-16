@@ -226,30 +226,17 @@
         </article>
       </div>
 
-      <!-- Audio features + Mood distribution -->
-      <div class="result-grid charts-grid">
-        <article class="glass-panel chart-card">
-          <div class="chart-card__head">
-            <h3>Müzikal DNA</h3>
-            <div class="legend">
-              <span><i class="dot dot-green"></i>Şarkı</span>
-              <span><i class="dot dot-cyan"></i>Hücre Ortalaması</span>
-            </div>
+      <!-- Audio features -->
+      <article class="glass-panel chart-card" style="max-width: 640px; margin: 0 auto; width: 100%;">
+        <div class="chart-card__head">
+          <h3>Müzikal DNA</h3>
+          <div class="legend">
+            <span><i class="dot dot-green"></i>Şarkı</span>
+            <span><i class="dot dot-cyan"></i>Hücre Ortalaması</span>
           </div>
-          <svg class="radar-svg" viewBox="0 0 420 320" id="radarChart"></svg>
-          <p class="chart-card__caption" id="dnaCaption">—</p>
-        </article>
-
-        <article class="glass-panel chart-card">
-          <h3>Ruh Hali Dağılımı</h3>
-          <div class="horizontal-chart" id="moodBars"></div>
-        </article>
-      </div>
-
-      <!-- Lyrics analysis -->
-      <article class="glass-panel chart-card full-width">
-        <h3>Duygu Analizi</h3>
-        <div class="vertical-chart" id="lyricsBars"></div>
+        </div>
+        <svg class="radar-svg" viewBox="0 0 420 320" id="radarChart"></svg>
+        <p class="chart-card__caption" id="dnaCaption">—</p>
       </article>
 
       <!-- Neighbors panel -->
@@ -262,7 +249,7 @@
       </article>
 
       <!-- Word cloud -->
-      <article class="glass-panel chart-card full-width">
+      <article id="wordCloudCard" class="glass-panel chart-card full-width">
         <div class="chart-card__head">
           <h3>Bu Hücrenin Kelime Bulutu</h3>
         </div>

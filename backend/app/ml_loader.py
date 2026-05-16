@@ -33,6 +33,7 @@ class MLState:
         self.df_db: pd.DataFrame | None = None
         self.df_raw: pd.DataFrame | None = None
         self._loaded = False
+        self.runtime_songs: dict[str, dict] = {}
 
     # ── Yükleme ─────────────────────────────────────────────────────────────
     def load_all(self) -> None:

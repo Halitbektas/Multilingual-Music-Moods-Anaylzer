@@ -16,6 +16,13 @@ Uçtaki endpoint'ler servislere delege eder; controller-service ayrımı korunur
 
 from contextlib import asynccontextmanager
 import logging
+from pathlib import Path
+
+# Dosyanın en altına (Diğer tüm api rotalarının altına) yapıştırın:
+CURRENT_FILE_DIR = Path(__file__).resolve().parent # app klasörü
+BACKEND_DIR = CURRENT_FILE_DIR.parent             # backend klasörü
+FRONTEND_DIR = BACKEND_DIR / "frontend"           # frontend klasörünün tam yolu
+
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -183,10 +190,21 @@ def journey(req: JourneyRequest):
 
 # API dışındaki tüm istekleri 'frontend' klasörüne yönlendirir
 # Tüm /api/... rotalarından SONRA (dosyanın en altına) ekle:
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+# Frontend ana sayfası
+@app.get("/debug/frontend")
+def debug_frontend():
+    return {
+        "frontend_dir": str(FRONTEND_DIR),
+        "exists": FRONTEND_DIR.exists(),
+        "is_dir": FRONTEND_DIR.is_dir(),
+        "files": [p.name for p in FRONTEND_DIR.iterdir()] if FRONTEND_DIR.exists() else []
+    }
 
-# Ana dizine (/) girildiğinde doğrudan index.html'i aç
-@app.get("/")
+
+@app.get("/", include_in_schema=False)
 async def serve_index():
-    # Klasör yolunu kendi proje yapına göre ayarlayabilirsin
-    return FileResponse("frontend/index.html")
+    return FileResponse(FRONTEND_DIR / "index.html")
+
+
+# Bu satır dosyanın EN SON SATIRI olmalı
+app.mount("/", StaticFiles(directory=FRONTEND_DIR), name="frontend")
