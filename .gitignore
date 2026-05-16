@@ -3,6 +3,8 @@
 .vscode/
 *.swp
 /.env
+.venv/
+/.env.example
 /venv/
 /raw_music_dataset.csv
 /music_features.csv
@@ -11,6 +13,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+som_results/
 /.cache
 Figure_1.png
 MMMA_Massive_Dataset_AutoSave.csv
