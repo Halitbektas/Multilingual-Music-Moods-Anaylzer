@@ -14,7 +14,7 @@ import numpy as np
 from app.ml_loader import ml_state
 from app.models import Coordinates, JourneyResponse, JourneyStop, NeighborSong
 from app.services import spotify_service
-from app.services.analyzer_service import _quadrant_label  # tekrar tekrar yazmamak için
+from app.services.analyzer_service import calculate_mood_metrics  # tekrar tekrar yazmamak için
 
 
 logger = logging.getLogger("mmma.journey")
@@ -82,12 +82,16 @@ def generate(start_x: int, start_y: int,
         ))
 
     # ── Narrative ───────────────────────────────────────────────────────
-    start_label, _ = _quadrant_label(start_x, start_y, grid_x, grid_y)
-    end_label, _ = _quadrant_label(end_x, end_y, grid_x, grid_y)
+    start_info = calculate_mood_metrics(int(start_x), int(start_y), {})
+    end_info = calculate_mood_metrics(int(end_x), int(end_y), {})
+
+    start_label = start_info["label"]
+    end_label = end_info["label"]
+
     narrative = (
-        f"{start_label} hücresinden başlayıp seni adım adım {end_label} "
-        f"bölgesine taşıyan, ses özellikleri yumuşak geçişlerle değişen "
-        f"{len(stops)} duraklı bir yolculuk listesi hazırladım."
+        f"'{start_label}' kıtasından başlayıp seni adım adım '{end_label}' "
+        f"bölgesine taşıyan, duygusal tonların yumuşak geçişlerle değiştiği "
+        f"{len(stops)} duraklı bir müzikal yolculuk."
     )
 
     return JourneyResponse(

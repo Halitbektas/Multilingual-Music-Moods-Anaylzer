@@ -94,6 +94,7 @@ const API = {
   },
   musicalDNA: (songId) => apiFetch(`/api/musical-dna/${encodeURIComponent(songId)}`),
   wordcloud: (x, y, topN = 60) => apiFetch(`/api/cell/wordcloud?x=${x}&y=${y}&top_n=${topN}`),
+  uMatrix: () => apiFetch('/api/som/umatrix'),
   journey: (sx, sy, ex, ey, steps = 8) => apiFetch('/api/journey', {
     method: 'POST',
     body: JSON.stringify({ start_x: sx, start_y: sy, end_x: ex, end_y: ey, steps }),
@@ -210,11 +211,32 @@ function renderAnalysis(data) {
   currentAnalysis = data;
 
   // Mood card
+  // ── Mood Card (YENİ HİBRİT VE EKOLAYZIR MANTIGI) ──
+  // ── Mood Card UI Güncelleme ──
   $('moodTitle').textContent = data.mood.label;
-  $('confidenceValue').textContent = `${data.mood.confidence}%`;
-  $('intensityValue').textContent = `${data.mood.intensity}%`;
-  $('confidenceBar').style.width = `${data.mood.confidence}%`;
-  $('intensityBar').style.width = `${data.mood.intensity}%`;
+
+  // 1. Hibrit Bar Verileri
+  $('hybridValue').textContent = `%${data.mood.primary_pct} / %${data.mood.secondary_pct}`;
+  const pBar = $('primaryBar');
+  const sBar = $('secondaryBar');
+
+  // Güvenlik: Elementler DOM'da yoksa JS çökmesin diye if kontrolü
+  if(pBar) pBar.style.width = `${data.mood.primary_pct}%`;
+  if(sBar) sBar.style.width = `${data.mood.secondary_pct}%`;
+
+  $('primaryLabelText').textContent = data.mood.label;
+  $('secondaryLabelText').textContent = data.mood.secondary_pct > 0 ? data.mood.secondary_label : '';
+
+  // 2. Yoğunluk (Ekolayzır)
+  $('intensityValue').textContent = `%${data.mood.intensity}`;
+
+  // Yoğunluk 100 ise 0.3sn (çok hızlı), Yoğunluk 0 ise 1.5sn (çok yavaş)
+  const speed = 1.5 - (data.mood.intensity / 100) * 1.2;
+  document.querySelectorAll('.eq-bar').forEach(bar => {
+      bar.style.animationDuration = `${Math.max(0.3, speed)}s`;
+  });
+
+  // 3. Dinamik Şiirsel Dipnot
   $('footnote').textContent = data.mood.footnote;
 
   // Song card
@@ -257,7 +279,7 @@ function renderAnalysis(data) {
   }
 
   // SOM marker — koordinatları SOM grid'inin yüzdesine çevir
-  const SOM_SIZE = 20; // backend grid_x/grid_y eşleşmeli
+  const SOM_SIZE = 22; // backend grid_x/grid_y eşleşmeli
   const px = ((data.coordinates.x + 0.5) / SOM_SIZE) * 100;
   const py = ((data.coordinates.y + 0.5) / SOM_SIZE) * 100;
   $('coordChip').textContent = `Konum: ${data.coordinates.text}`;
@@ -567,3 +589,256 @@ initTheme();
 setMode('spotify');
 // İlk açılışta nötr radar — analiz yapılınca dolacak
 renderRadar([50, 50, 50, 50, 50, 50]);
+
+// =====================================================================
+// 🔥 V2 TIKLANABİLİR HARİTA VE POPUP OPERASYONLARI
+// =====================================================================
+
+// HTML elementlerini ID ile seçen senin mevcut yardımcı fonksiyonun ($)
+// Eğer hata verirse (is not defined vb.) diye buraya basit bir fallback bırakıyoruz:
+const getEl = (id) => document.getElementById(id);
+
+// 1. Dinamik Izgara Üretimi
+// 1. Dinamik Izgara Üretimi ve U-Matrix Isı Haritası Renklendirmesi
+// 1. Dinamik Izgara Üretimi (Çift Katmanlı Performans Mimarisi)
+// =====================================================================
+// 🌌 SOM HARİTASI "NEBULA" GÖRSELLEŞTİRMESİ (Sıfır Izgara, Tam Renk Uyumu)
+// =====================================================================
+// =====================================================================
+// 🌌 SOM HARİTASI "NEBULA" GÖRSELLEŞTİRMESİ (DÜZELTİLMİŞ MİMARİ)
+// =====================================================================
+async function initSOMGrid() {
+    const somMap = document.getElementById('somMap');
+    const clickOverlay = getEl('somGridOverlay');
+    if (!somMap || !clickOverlay) return;
+
+    clickOverlay.innerHTML = ''; // Tıklama katmanını temizle
+    somMap.style.overflow = 'hidden'; // Dışarı taşan bulanıklığı pürüzsüzce keser
+
+    // ── 1) U-Matrix Verisini Backend'den Çek ──────────────────────────────
+    let uMatrixData = null;
+    const SOM_GRID_SIZE = 22;
+
+    try {
+        uMatrixData = await API.uMatrix();
+    } catch (err) {
+        console.warn("U-Matrix verisi alınamadı:", err.message);
+    }
+
+    if (uMatrixData) {
+        // ── 2) GÖRSEL KATMAN: Arka Planda SVG Nebula Oluştur ──
+
+        // Eğer daha önce eklediysek bul, yoksa yarat
+        let heatmapLayer = document.getElementById('somHeatmapBg');
+        if (!heatmapLayer) {
+            heatmapLayer = document.createElement('div');
+            heatmapLayer.id = 'somHeatmapBg';
+
+            // Tüm haritayı kaplar ama taşmaları önlemek için sınırları genişletilir
+            heatmapLayer.style.position = 'absolute';
+            heatmapLayer.style.inset = '-15px';
+            heatmapLayer.style.zIndex = '1';
+            heatmapLayer.style.pointerEvents = 'none';
+
+            // 🔥 SİHİR BURADA: Bulanıklığı SADECE arka plana veriyoruz. Yazılar net kalıyor!
+            heatmapLayer.style.filter = 'blur(16px)';
+            somMap.insertBefore(heatmapLayer, somMap.firstChild);
+        }
+
+        let svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${SOM_GRID_SIZE}" height="${SOM_GRID_SIZE}" viewBox="0 0 ${SOM_GRID_SIZE} ${SOM_GRID_SIZE}" preserveAspectRatio="none">`;
+
+        for (let y = 0; y < SOM_GRID_SIZE; y++) {
+            for (let x = 0; x < SOM_GRID_SIZE; x++) {
+                const val = uMatrixData[y][x]; // 0.0 - 1.0
+
+                // Renk İnterpolasyonu (Daha Tok, Koyu ve Asil Tonlar)
+                let r, g, b;
+
+                if (val < 0.4) {
+                    // Vadiler: Koyu Lacivert (6, 20, 40) -> Tok Mavi (16, 60, 100)
+                    const t = val / 0.4;
+                    r = Math.round(6 + (16 - 6) * t);
+                    g = Math.round(20 + (60 - 20) * t);
+                    b = Math.round(40 + (100 - 40) * t);
+                } else {
+                    // Dağlar: Tok Mavi (16, 60, 100) -> Gizemli Mor (120, 50, 160)
+                    const t = (val - 0.4) / 0.6;
+                    r = Math.round(16 + (120 - 16) * t);
+                    g = Math.round(60 + (50 - 60) * t);
+                    b = Math.round(100 + (160 - 100) * t);
+                }
+
+                svgString += `<rect x="${x}" y="${y}" width="1" height="1" fill="rgb(${r},${g},${b})"/>`;
+            }
+        }
+        svgString += '</svg>';
+
+        // SVG'yi base64 imajına çevir ve haritanın arka planına ata
+        const svgBase64 = btoa(svgString);
+        heatmapLayer.style.backgroundImage = `url("data:image/svg+xml;base64,${svgBase64}")`;
+        heatmapLayer.style.backgroundSize = '100% 100%';
+
+        // ❌ somMap üzerindeki hatalı filtreleri temizliyoruz
+        somMap.style.filter = 'none';
+        somMap.style.mixBlendMode = 'normal';
+    }
+
+    // ── 3) TIKLAMA KATMANI: Görünmez Tıklama Izgarası
+    somMap.style.position = 'relative';
+
+    for (let y = 0; y < SOM_GRID_SIZE; y++) {
+        for (let x = 0; x < SOM_GRID_SIZE; x++) {
+            const clickCell = document.createElement('div');
+            clickCell.className = 'som-cell';
+            clickCell.dataset.x = x;
+            clickCell.dataset.y = y;
+
+            clickCell.addEventListener('mouseenter', () => {
+                const coordChip = getEl('coordChip');
+                if (coordChip) coordChip.textContent = `Konum: (${x}, ${y})`;
+            });
+
+            clickCell.addEventListener('click', () => {
+                openCellPopup(x, y);
+            });
+
+            clickOverlay.appendChild(clickCell);
+        }
+    }
+
+    // Fare çıkınca default koordinata dön
+    clickOverlay.addEventListener('mouseleave', () => {
+        const coordChip = getEl('coordChip');
+        if (coordChip) {
+            if (currentAnalysis && currentAnalysis.coordinates) {
+                coordChip.textContent = `Konum: ${currentAnalysis.coordinates.text}`;
+            } else {
+                coordChip.textContent = `Konum: (—, —)`;
+            }
+        }
+    });
+}
+
+// YARDIMCI: Tema hex renklerini RGB'ye çevirir
+function hexToRgb(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : {r: 0, g: 0, b: 0};
+}
+
+// 2. API'den Şarkıları Çekme ve Popup İçine Basma Fonksiyonu
+async function openCellPopup(x, y) {
+    const popup = getEl('somCellPopup');
+    const title = getEl('popupTitle');
+    const body = getEl('popupBody');
+
+    if (!popup || !title || !body) return;
+
+    title.textContent = `Hücre İçeriği: (${x}, ${y})`;
+    body.innerHTML = '<div class="popup-loading" style="color:white; text-align:center;">Şarkılar aranıyor...</div>';
+    popup.classList.add('active');
+
+    try {
+        // Backend servisindeki neighbors endpoint'ine istek atıyoruz
+        const response = await fetch(`/api/cell/neighbors?x=${x}&y=${y}&limit=15&enrich=true`);
+        if (!response.ok) throw new Error('Veri çekilemedi');
+
+        const data = await response.json();
+        const songs = data.neighbors || [];
+
+        if (songs.length === 0) {
+            body.innerHTML = '<div class="popup-empty" style="color:#aaa; text-align:center;">Bu hücrede henüz şarkı bulunmuyor.</div>';
+            return;
+        }
+
+        // Şarkı listesini HTML olarak inşa et
+        body.innerHTML = songs.map(song => {
+            const artUrl = song.album_art_url || 'https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100&auto=format&fit=crop';
+            return `
+                <div class="popup-song-item">
+                    <img src="${artUrl}" class="popup-album-art" alt="${song.title}" onerror="this.src='https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=100&auto=format&fit=crop'">
+                    <div class="popup-song-info">
+                        <span class="popup-song-title">${song.title}</span>
+                        <span class="popup-song-artist">${song.artist}</span>
+                    </div>
+                    ${song.spotify_preview_url ? `
+                    <audio controls src="${song.spotify_preview_url}" style="height:30px; width:100px; margin-left:auto;"></audio>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error("Popup Hatası:", error);
+        body.innerHTML = '<div class="popup-error" style="color:#ff4d4d; text-align:center;">Şarkılar yüklenirken hata oluştu.</div>';
+    }
+}
+
+// 3. Popup Kapatma Olayları
+function initPopupEventListeners() {
+    const popup = getEl('somCellPopup');
+    const closeBtn = getEl('popupCloseBtn');
+
+    if (!popup || !closeBtn) return;
+
+    closeBtn.addEventListener('click', () => popup.classList.remove('active'));
+    popup.addEventListener('click', (e) => {
+        if (e.target === popup) popup.classList.remove('active');
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && popup.classList.contains('active')) {
+            popup.classList.remove('active');
+        }
+    });
+}
+
+// K-Means ile hesapladığımız 8 Kıta ve Tam Merkez Koordinatları
+const NEIGHBORHOODS = [
+    { text: "Enerjik Türkçe Pop-Rock", x: 2, y: 9 },
+    { text: "Global Akustik & Slow", x: 12, y: 19 },
+    { text: "Hareketli Türkçe Pop", x: 20, y: 4 },
+    { text: "Modern Türkçe Alternatif", x: 3, y: 18 },
+    { text: "Duygusal Türkçe Klasikler", x: 19, y: 16 },
+    { text: "Türkçe Rap & Hip-Hop", x: 13, y: 2 },
+    { text: "Yüksek Voltaj Global Hits", x: 4, y: 2 },
+    { text: "Uluslararası Radyo Pop", x: 11, y: 10 }
+];
+
+// Yeni Mahalle Etiketlerini Haritaya Matematiksel Olarak Basan Fonksiyon
+function renderMapLabels() {
+    const container = document.getElementById('somLabelsOverlay');
+    if (!container) return;
+
+    container.innerHTML = ''; // İçini temizle
+    const SOM_SIZE = 22;
+
+    NEIGHBORHOODS.forEach(zone => {
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'som-neighborhood-label';
+
+    // 🔥 YENİ EKLENEN KISIM: Metni özel bir span içine alıyoruz
+    const textSpan = document.createElement('span');
+    textSpan.className = 'label-text';
+    textSpan.textContent = zone.text;
+    labelDiv.appendChild(textSpan);
+
+        // Tıpkı Marker'da yaptığımız gibi X ve Y koordinatlarını yüzdesel konuma çeviriyoruz
+        const px = ((zone.x + 0.5) / SOM_SIZE) * 100;
+        const py = ((zone.y + 0.5) / SOM_SIZE) * 100;
+
+        labelDiv.style.left = `${px}%`;
+        labelDiv.style.top = `${py}%`;
+
+        container.appendChild(labelDiv);
+    });
+}
+
+// 4. Sayfa Yüklendiğinde Izgarayı Çalıştır
+document.addEventListener('DOMContentLoaded', () => {
+    initSOMGrid();
+    initPopupEventListeners();
+    renderMapLabels();
+});

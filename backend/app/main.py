@@ -188,6 +188,15 @@ def journey(req: JourneyRequest):
         req.start_x, req.start_y, req.end_x, req.end_y, req.steps
     )
 
+@app.get("/api/som/umatrix", tags=["som"])
+def get_som_u_matrix():
+    try:
+        return som_service.get_u_matrix()
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"Beklenmeyen hata: {str(e)}")
+
 # API dışındaki tüm istekleri 'frontend' klasörüne yönlendirir
 # Tüm /api/... rotalarından SONRA (dosyanın en altına) ekle:
 # Frontend ana sayfası
