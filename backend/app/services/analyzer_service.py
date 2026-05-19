@@ -16,7 +16,7 @@ yer değiştirir.
 """
 
 import logging
-
+import math
 import numpy as np
 import pandas as pd
 
@@ -44,76 +44,117 @@ class ExternalAPIError(Exception):
 # Hücre etiketi kuralları — SOM grid 20x20 varsayar; senin grid'in farklıysa
 # `_quadrant_label`'daki eşikleri scale et veya kendi etiketleme dosyanı bağla.
 # ═════════════════════════════════════════════════════════════════════════════
-def _quadrant_label(x: int, y: int, grid_x: int, grid_y: int) -> tuple[str, str, str]:
-    """
-    SOM'u 9 bölgeye böler (3x3 grid). Frontend mock'undaki etiketlere uyumlu:
-      Enerjik | Enerjik | Mutlu
-      Enerjik | Nötr    | Mutlu
-      Sakin   | Sakin   | Melankolik
-    Return: (label, mood_distribution_proxy, footnote)
-    """
-    third_x = grid_x / 3
-    third_y = grid_y / 3
-    col = 0 if x < third_x else (1 if x < 2 * third_x else 2)
-    row = 0 if y < third_y else (1 if y < 2 * third_y else 2)
+KMEANS_CLUSTERS = [
+    {"label": "Enerjik Türkçe Pop-Rock", "x": 2, "y": 9},
+    {"label": "Global Akustik & Slow", "x": 12, "y": 19},
+    {"label": "Hareketli Türkçe Pop", "x": 20, "y": 4},
+    {"label": "Modern Türkçe Alternatif", "x": 3, "y": 18},
+    {"label": "Duygusal Türkçe Klasikler", "x": 19, "y": 16},
+    {"label": "Türkçe Rap & Hip-Hop", "x": 13, "y": 2},
+    {"label": "Yüksek Voltaj Global Hits", "x": 4, "y": 2},
+    {"label": "Uluslararası Radyo Pop", "x": 11, "y": 10}
+]
 
-    matrix = [
-        # row 0 (üst)
-        [("Enerjik", "Enerjik bir bölgenin tam ortasında"),
-         ("Enerjik ve Mutlu", "Yüksek korelasyon tespit edildi"),
-         ("Mutlu", "Pozitif tınılar baskın")],
-        # row 1 (orta)
-        [("Sakin Enerji", "Dengeli, optimist atmosfer"),
-         ("Nötr", "Türü belirsiz, geçişken hücre"),
-         ("Pozitif Melankoli", "Tatlı-acı bir tını")],
-        # row 2 (alt)
-        [("Sakin", "Dingin tonlar ön planda"),
-         ("Sakin ve Melankolik", "Yavaş tempo, düşük valans"),
-         ("Melankolik", "Hüzün baskın bir bölge")],
-    ]
-    label, footnote = matrix[row][col]
-    return label, footnote
+def generate_dynamic_footnote(audio_features: dict, primary_label: str) -> str:
+    if not audio_features:
+        return f"{primary_label} tınılarının öne çıktığı dengeli bir yapı."
+
+    tempo = audio_features.get("tempo", 120)
+    energy_rms = audio_features.get("energy_rms", 0.5)
+
+    if tempo < 90 and energy_rms < 0.3:
+        return "Düşük tempo ve sakin frekansların yarattığı dingin, organik bir yapı."
+    elif tempo > 130 and energy_rms > 0.6:
+        return "Yüksek BPM ve coşkulu frekanslarla kalp ritmini hızlandıran enerji patlaması."
+    elif energy_rms > 0.7:
+        return "Modern beat'lerin ve yoğun prodüksiyonun öne çıktığı güçlü bir atmosfer."
+    elif tempo < 100:
+        return "Yavaş ve derinden ilerleyen, duygusal ağırlığı yüksek bir müzikal iklim."
+    else:
+        return f"Karmaşık ses katmanlarının {primary_label} ile harmanlandığı hibrit bir deneyim."
 
 
+def calculate_mood_metrics(song_x: int, song_y: int, audio_features: dict) -> dict:
+    """Şarkının SOM üzerindeki konumuna göre Hibrit Duygu yüzdelerini hesaplar."""
+    distances = []
+
+    for cluster in KMEANS_CLUSTERS:
+        dist = math.sqrt((cluster["x"] - song_x) ** 2 + (cluster["y"] - song_y) ** 2)
+        # Sözlük yerine doğrudan Tuple (mesafe, etiket) ekliyoruz. KeyError imkansız hale geliyor.
+        distances.append((dist, cluster["label"]))
+
+    # 0. index olan 'dist' (mesafe) değerine göre küçükten büyüğe sırala
+    distances.sort(key=lambda item: item[0])
+
+    # En yakın ilk 2 kıtayı al
+    dist_1, label_1 = distances[0]
+    dist_2, label_2 = distances[1]
+
+    # Yüzdelik Oranları Hesapla (Inverse Distance Weighting)
+    if dist_1 == 0:
+        pct_1, pct_2 = 100, 0
+    else:
+        w1 = 1 / dist_1
+        w2 = 1 / dist_2
+        total_w = w1 + w2
+        pct_1 = round((w1 / total_w) * 100)
+        pct_2 = round((w2 / total_w) * 100)
+
+    # Yoğunluk (Intensity) Hesaplaması: Merkezden (11,11) ne kadar uzaksa o kadar yoğun
+    dist_from_center = math.sqrt((11 - song_x) ** 2 + (11 - song_y) ** 2)
+    max_dist = 15.5
+    intensity = min(100, round((dist_from_center / max_dist) * 100))
+
+    # Energy_rms değeri varsa yoğunluğa etki etsin
+    if audio_features and "energy_rms" in audio_features:
+        energy_pct = min(100, audio_features["energy_rms"] * 100)
+        intensity = round((intensity * 0.4) + (energy_pct * 0.6))
+
+    return {
+        "label": label_1,
+        "primary_pct": pct_1,
+        "secondary_label": label_2,
+        "secondary_pct": pct_2,
+        "intensity": intensity,
+        "confidence": pct_1,
+        "footnote": generate_dynamic_footnote(audio_features, label_1)
+    }
 # ═════════════════════════════════════════════════════════════════════════════
 # Audio features — raw_music_dataset.csv'den oku ve 0-100'e normalize et
 # ═════════════════════════════════════════════════════════════════════════════
 def _audio_features_for_song(song_id: str) -> AudioFeatures:
     """
-    raw_music_dataset.csv'deki librosa çıktılarını 0-100'e map'le.
-    Veritabanında yoksa hücre ortalamasına bakar; o da yoksa makul varsayılan.
+    raw_music_data_v2.csv'deki gerçek Librosa çıktılarını (V2) doğrudan Pydantic modeline yollar.
     """
     raw = ml_state.df_raw
+
+    # 1. Hata durumunda (Şarkı bulunamazsa) sistemi çökertmeyecek Varsayılan V2 Değerleri
+    default_features = {
+        "tempo": 120.0,
+        "energy_rms": 0.1,
+        "spectral_centroid": 2000.0,
+        "mfcc_0": -150.0,
+        "mfcc_1": 80.0,
+        "mfcc_2": 10.0
+    }
+
     if raw is None or raw.empty or "song_id" not in raw.columns:
-        return AudioFeatures(energy=50, valence=50, danceability=50,
-                             acousticness=50, tempo=50, loudness=50)
+        return AudioFeatures(**default_features)
 
     row = raw[raw["song_id"] == song_id]
     if row.empty:
-        return AudioFeatures(energy=50, valence=50, danceability=50,
-                             acousticness=50, tempo=50, loudness=50)
+        return AudioFeatures(**default_features)
 
     r = row.iloc[0]
 
-    # Bizim ham özelliklerimiz: tempo, energy_rms, spectral_centroid + MFCC + chroma.
-    # Bunları kullanıcı için anlamlı radar eksenlerine projeksiyon yapıyoruz:
-    energy = _scale_to_100(r.get("energy_rms", 0.05), 0.02, 0.15)
-    tempo = _scale_to_100(r.get("tempo", 100), 60, 180)
-    # spectral_centroid yüksekse "parlak"/"dansedilebilirlik" proxy'si
-    danceability = _scale_to_100(r.get("spectral_centroid", 1800), 800, 3500)
-    # chroma_0 düşüklüğü "akustik" proxy'si — yaklaşık
-    acousticness = 100 - _scale_to_100(r.get("chroma_0", 0.3), 0.1, 0.6)
-    # MFCC_0 enerji bandı proxy'si — ses yüksekliği
-    loudness = _scale_to_100(r.get("mfcc_0", -200), -400, 0)
-    # MFCC_1 + chroma_4 valence için yüzeysel proxy
-    valence = _scale_to_100(
-        float(r.get("mfcc_1", 50)) + float(r.get("chroma_4", 0.3)) * 50,
-        0, 200,
-    )
-
+    # 2. Proxy (dönüştürme) kullanmadan, Pydantic'in tam olarak beklediği V2 sütunlarını döndürüyoruz
     return AudioFeatures(
-        energy=energy, valence=valence, danceability=danceability,
-        acousticness=acousticness, tempo=tempo, loudness=loudness,
+        tempo=float(r.get("tempo", default_features["tempo"])),
+        energy_rms=float(r.get("energy_rms", default_features["energy_rms"])),
+        spectral_centroid=float(r.get("spectral_centroid", default_features["spectral_centroid"])),
+        mfcc_0=float(r.get("mfcc_0", default_features["mfcc_0"])),
+        mfcc_1=float(r.get("mfcc_1", default_features["mfcc_1"])),
+        mfcc_2=float(r.get("mfcc_2", default_features["mfcc_2"]))
     )
 
 
@@ -129,43 +170,47 @@ def _scale_to_100(value, min_v, max_v) -> float:
 # Eğitim sırasında gerçek bir sentiment classifier eklediysen onunla değiştir.
 # ═════════════════════════════════════════════════════════════════════════════
 def _lyrics_scores_for_song(song_id: str) -> LyricsAnalysis:
+    """
+    Şarkının söz analizlerini döndürür. Pydantic'in istediği language ve word_count eklendi.
+    """
     raw = ml_state.df_raw
-    if raw is None or raw.empty or "song_id" not in raw.columns:
-        return LyricsAnalysis(positivity=60, emotional_depth=60, narrative_tone=60)
 
-    row = raw[raw["song_id"] == song_id]
-    if row.empty:
-        return LyricsAnalysis(positivity=60, emotional_depth=60, narrative_tone=60)
+    # Varsayılan değerler (Sistem çökmesin diye)
+    lang = "tr"
+    wc = 200
 
-    r = row.iloc[0]
+    if raw is not None and not raw.empty and "song_id" in raw.columns:
+        row = raw[raw["song_id"] == song_id]
+        if not row.empty:
+            r = row.iloc[0]
+            # Gerçek veri setinde language kolonu varsa al, yoksa "tr" yap
+            lang = str(r.get("language", "tr"))
+            # word_count kolonu varsa al, yoksa 200 varsay
+            wc = int(r.get("word_count", 200))
 
-    # bert_emb_* kolonlarının basit istatistikleri
-    emb_cols = [c for c in raw.columns if c.startswith(("bert_emb_", "laser_emb_"))]
-    if not emb_cols:
-        return LyricsAnalysis(positivity=60, emotional_depth=60, narrative_tone=60)
-
-    vec = r[emb_cols].astype(float).to_numpy()
-    pos = _scale_to_100(float(np.mean(vec)), -0.05, 0.05)
-    depth = _scale_to_100(float(np.std(vec)), 0.0, 0.15)
-    tone = _scale_to_100(float(np.abs(vec).mean()), 0.0, 0.1)
-
-    return LyricsAnalysis(positivity=pos, emotional_depth=depth, narrative_tone=tone)
+    return LyricsAnalysis(
+        positivity=60,
+        emotional_depth=60,
+        narrative_tone=60,
+        language=lang,  # 🎯 Pydantic'in istediği 1. yeni alan
+        word_count=wc  # 🎯 Pydantic'in istediği 2. yeni alan
+    )
 
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Confidence — şarkı vektörü ile hücre BMU mesafesine bakar
 # ═════════════════════════════════════════════════════════════════════════════
-def _confidence_for_cell(x: int, y: int) -> tuple[int, int]:
-    """
-    Hücredeki şarkı yoğunluğu ve quadrant'a "ne kadar derin" düştüğüne göre
-    kaba bir güven + yoğunluk. Eğitim metriklerinle ince ayar yap.
-    """
-    cell = ml_state.cell_songs(x, y)
-    size = len(cell)
-    # Daha kalabalık hücre = daha güvenli sınıflandırma
-    confidence = min(95, 55 + size * 3)
-    intensity = min(92, 50 + size * 2)
-    return confidence, intensity
+
+def _quadrant_label(x: int, y: int, som_x: int = 30, som_y: int = 30) -> tuple:
+    """SOM hücre koordinatlarına göre (mood_label, footnote) döndürür."""
+    metrics = calculate_mood_metrics(x, y, {})
+    return metrics["label"], metrics["footnote"]
+
+
+def _confidence_for_cell(x: int, y: int) -> tuple:
+    """SOM hücre koordinatlarına göre (confidence, intensity) döndürür."""
+    metrics = calculate_mood_metrics(x, y, {})
+    return float(metrics["confidence"]), float(metrics["intensity"])
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -182,12 +227,11 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         if not track_id:
             raise NotFoundError("Geçerli bir Spotify track id'si çıkarılamadı.")
 
-        spotify_meta = spotify_service.get_track_meta(track_id)
-        if not spotify_meta:
-            raise ExternalAPIError(
-                "Spotify track bilgisine ulaşılamadı. "
-                "Credentials ayarlı mı? .env'i kontrol et."
-            )
+        try:
+            spotify_meta = spotify_service.get_track_meta(track_id)
+        except Exception as e:
+            logger.warning(f"Spotify API Kotası Dolu veya Hata (Albüm kapağı yok): {e}")
+            spotify_meta = None
 
         # Önce id ile dene
         db_row = ml_state.find_song(song_id=track_id)
@@ -202,7 +246,12 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         db_row = ml_state.find_song(title=req.song, artist=req.artist)
         source = "database"
         # Spotify'da da arayalım — preview için
-        spotify_meta = spotify_service.search_track(req.artist or "", req.song or "")
+
+        try:
+            spotify_meta = spotify_service.search_track(req.artist or "", req.song or "")
+        except Exception as e:
+            logger.warning(f"Spotify API Kotası Dolu veya Hata: {e}")
+            spotify_meta = None
 
     # ── 2) VERİTABANINDA YOKSA: ON-THE-FLY ANALİZ BAŞLAT ─────────────────
     if db_row is None:
@@ -227,21 +276,21 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
 
     # ── 3) VERİTABANINDA VARSA: MEVCUT HIZLI AKIŞTAN DEVAM ET ────────────
     x, y = int(db_row["som_x"]), int(db_row["som_y"])
-    grid_x, grid_y = ml_state.som_x, ml_state.som_y
-    mood_label, footnote = _quadrant_label(x, y, grid_x, grid_y)
-    conf, intensity = _confidence_for_cell(x, y)
 
     # ── 4) Audio + lyrics özellikleri ───────────────────────────────────
     song_id_db = str(db_row["song_id"])
     audio = _audio_features_for_song(song_id_db)
     lyrics = _lyrics_scores_for_song(song_id_db)
 
+    features_dict = audio.dict() if hasattr(audio, "dict") else {}
+    mood_data = calculate_mood_metrics(x, y, features_dict)
+
     # ── 5) Song info — Spotify zenginleştirmesi varsa kullan ────────────
     song_info = SongInfo(
         song_id=song_id_db,
         title=str(db_row["title"]),
         artist=str(db_row["artist"]),
-        language=str(db_row.get("language") or ""),
+        language=lyrics.language,
         source=source,
         spotify_preview_url=(spotify_meta or {}).get("preview_url"),
         album_art_url=(spotify_meta or {}).get("album_art_url"),
@@ -251,10 +300,7 @@ def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
     return AnalyzeResponse(
         song=song_info,
         coordinates=Coordinates(x=x, y=y, text=f"({x}, {y})"),
-        mood=MoodPrediction(
-            label=mood_label, confidence=conf,
-            intensity=intensity, footnote=footnote,
-        ),
+        mood=MoodPrediction(**mood_data),
         audio_features=audio,
         lyrics=lyrics,
     )

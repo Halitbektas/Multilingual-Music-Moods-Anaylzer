@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/styles.css?v=10" />
   <link rel="stylesheet" href="styles-extra.css" />
 </head>
 
@@ -165,14 +165,27 @@
       <div class="glass-panel som-panel">
         <h2>Kendini Düzenleyen Harita Analizi</h2>
         <p>Duygusal konumlandırma ve ruh hali küme görselleştirmesi</p>
+
         <div class="som-map" id="somMap">
-          <div class="som-region region-top-left">Enerjik</div>
-          <div class="som-region region-top-right">Mutlu</div>
-          <div class="som-region region-center">Nötr</div>
-          <div class="som-region region-bottom-left">Sakin</div>
-          <div class="som-region region-bottom-right">Melankolik</div>
+          <div id="somLabelsOverlay"></div>
+
+          <div class="som-grid-overlay" id="somGridOverlay"></div>
+
           <div class="coord-chip" id="coordChip">Konum: (—, —)</div>
           <div class="song-marker" id="songMarker"></div>
+        </div>
+
+        <div class="som-color-controls">
+          <span class="som-color-label">Harita Rengi</span>
+          <button class="som-color-btn active" data-scheme="0" title="Plasma (Varsayılan)">
+            <span class="som-color-dot plasma-dot"></span>Plasma
+          </button>
+          <button class="som-color-btn" data-scheme="1" title="Mor-Mavi-Turkuaz (Tema)">
+            <span class="som-color-dot theme-dot"></span>Tema
+          </button>
+          <button class="som-color-btn" data-scheme="2" title="Rengarenk">
+            <span class="som-color-dot rainbow-dot"></span>Rengarenk
+          </button>
         </div>
       </div>
 
@@ -191,12 +204,27 @@
             </div>
           </div>
           <div class="metric-row">
-            <div class="metric-head"><span>Güven</span><strong id="confidenceValue">—</strong></div>
-            <div class="metric-track"><span id="confidenceBar"></span></div>
+            <div class="metric-head"><span>Hibrit Duygu Dağılımı</span><strong id="hybridValue">—</strong></div>
+            <div class="hybrid-track">
+              <span id="primaryBar" class="primary-fill"></span>
+              <span id="secondaryBar" class="secondary-fill"></span>
+            </div>
+            <div class="hybrid-labels">
+              <span id="primaryLabelText">—</span>
+              <span id="secondaryLabelText">—</span>
+            </div>
           </div>
+
           <div class="metric-row">
-            <div class="metric-head"><span>Yoğunluk</span><strong id="intensityValue">—</strong></div>
-            <div class="metric-track purple"><span id="intensityBar"></span></div>
+            <div class="metric-head"><span>Duygu Yoğunluğu</span><strong id="intensityValue">—</strong></div>
+            <div class="equalizer-container" id="equalizerContainer">
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+              <div class="eq-bar"></div>
+            </div>
           </div>
           <div class="card-footnote" id="footnote">—</div>
         </article>
@@ -271,12 +299,15 @@
           </div>
           <div class="journey-field">
             <label>Hedef Ruh Hali</label>
-            <select id="journeyTarget">
-              <option value="0,0">Enerjik (sol-üst)</option>
-              <option value="0,19">Mutlu (sağ-üst)</option>
-              <option value="10,10">Nötr (merkez)</option>
-              <option value="19,0">Sakin (sol-alt)</option>
-              <option value="19,19">Melankolik (sağ-alt)</option>
+            <select id="journeyTarget" class="journey-input">
+              <option value="2,9">Enerjik Türkçe Pop-Rock</option>
+              <option value="12,19">Global Akustik & Slow</option>
+              <option value="20,4">Hareketli Türkçe Pop</option>
+              <option value="3,18">Modern Türkçe Alternatif</option>
+              <option value="19,16">Duygusal Türkçe Klasikler</option>
+              <option value="13,2">Türkçe Rap & Hip-Hop</option>
+              <option value="4,2">Yüksek Voltaj Global Hits</option>
+              <option value="11,10">Uluslararası Radyo Pop</option>
             </select>
           </div>
           <div class="journey-field">
@@ -289,10 +320,22 @@
         <p id="journeyNarrative" class="journey-narrative hidden"></p>
         <ol id="journeyList" class="journey-list"></ol>
       </article>
+
     </section>
   </main>
 
+  <div class="som-cell-popup" id="somCellPopup">
+    <div class="popup-content glass-panel">
+      <div class="popup-header">
+        <h3 id="popupTitle">Hücre İçeriği (X, Y)</h3>
+        <button class="popup-close-btn" id="popupCloseBtn">×</button>
+      </div>
+      <div class="popup-body" id="popupBody">
+        <div class="popup-loading">Şarkılar yükleniyor...</div>
+      </div>
+    </div>
+  </div>
+
   <script src="script.js"></script>
 </body>
-
 </html>

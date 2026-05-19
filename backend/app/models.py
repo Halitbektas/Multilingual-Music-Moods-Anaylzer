@@ -45,10 +45,12 @@ class SongInfo(BaseModel):
 
 
 class MoodPrediction(BaseModel):
-    """SOM hücresinin etiketi + güven puanı."""
-    label: str          # "Enerjik ve Mutlu" vb.
-    confidence: int     # 0-100
-    intensity: int      # 0-100
+    label: str
+    primary_pct: int = 100            # YENİ
+    secondary_label: str = ""         # YENİ
+    secondary_pct: int = 0            # YENİ
+    confidence: int
+    intensity: int
     footnote: str
 
 

@@ -46,3 +46,10 @@ def get_neighbors(
         total_in_cell=total,
         neighbors=neighbors,
     )
+
+def get_u_matrix() -> list[list[float]]:
+    if not hasattr(ml_state, 'som') or ml_state.som is None:
+        raise ValueError("SOM modeli yüklenmemiş.")
+
+    u_matrix = ml_state.som.distance_map()
+    return u_matrix.tolist()

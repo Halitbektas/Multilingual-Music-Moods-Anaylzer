@@ -43,7 +43,7 @@ def _get_client() -> spotipy.Spotify | None:
         client_id=settings.spotify_client_id,
         client_secret=settings.spotify_client_secret,
     )
-    _client = spotipy.Spotify(auth_manager=auth, requests_timeout=10, retries=3)
+    _client = spotipy.Spotify(auth_manager=auth, requests_timeout=10, retries=0)
     return _client
 
 
