@@ -579,6 +579,7 @@ tabButtons.forEach(btn => btn.addEventListener('click', () => setMode(btn.datase
 themeToggle.addEventListener('click', () => {
   const next = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   setTheme(next);
+  applyHeatmapScheme(somColorScheme, cachedUMatrixData);
 });
 
 $('journeyBtn').addEventListener('click', runJourney);
@@ -587,8 +588,8 @@ $('journeyBtn').addEventListener('click', runJourney);
 // ── 10) Boot ──────────────────────────────────────────────────────────────
 initTheme();
 setMode('spotify');
-// İlk açılışta nötr radar — analiz yapılınca dolacak
 renderRadar([50, 50, 50, 50, 50, 50]);
+initSomColorButtons();
 
 // =====================================================================
 // 🔥 V2 TIKLANABİLİR HARİTA VE POPUP OPERASYONLARI
@@ -598,14 +599,88 @@ renderRadar([50, 50, 50, 50, 50, 50]);
 // Eğer hata verirse (is not defined vb.) diye buraya basit bir fallback bırakıyoruz:
 const getEl = (id) => document.getElementById(id);
 
-// 1. Dinamik Izgara Üretimi
-// 1. Dinamik Izgara Üretimi ve U-Matrix Isı Haritası Renklendirmesi
-// 1. Dinamik Izgara Üretimi (Çift Katmanlı Performans Mimarisi)
+// ── SOM Renk Paleti ───────────────────────────────────────────────────────
+let somColorScheme = 0;
+let cachedUMatrixData = null;
+
+const COLOR_SCHEMES = [
+    { // 0: Plasma (orijinal)
+        stops: [
+            [0,   0,   4,   0.00],
+            [38,  6,  148, 0.75],
+            [195, 18, 215, 0.94],
+            [255, 62,  22, 1.00],
+            [255, 240, 10, 1.00],
+        ]
+    },
+    { // 1: Mor-Mavi-Turkuaz (site teması)
+        stops: [
+            [4,   1,  18,  0.00],
+            [80,  20, 180, 0.72],
+            [25,  70, 210, 0.86],
+            [0,  160, 220, 0.94],
+            [0,  210, 200, 1.00],
+        ]
+    },
+    { // 2: Rengarenk (gökkuşağı)
+        stops: [
+            [4,   0,  25,  0.00],
+            [110,  0, 200, 0.78],
+            [0,   70, 255, 0.88],
+            [0,  200, 150, 0.94],
+            [70, 225,   0, 0.96],
+            [250, 195,  0, 0.98],
+            [255,  45,  0, 1.00],
+        ]
+    }
+];
+
+function interpolateColor(stops, val) {
+    const n = stops.length - 1;
+    const scaled = val * n;
+    const idx = Math.min(Math.floor(scaled), n - 1);
+    const t = scaled - idx;
+    const s0 = stops[idx], s1 = stops[idx + 1];
+    const r = Math.round(s0[0] + (s1[0] - s0[0]) * t);
+    const g = Math.round(s0[1] + (s1[1] - s0[1]) * t);
+    const b = Math.round(s0[2] + (s1[2] - s0[2]) * t);
+    const a = (s0[3] + (s1[3] - s0[3]) * t).toFixed(2);
+    return `rgba(${r},${g},${b},${a})`;
+}
+
+function applyHeatmapScheme(scheme, data) {
+    const heatmapLayer = document.getElementById('somHeatmapBg');
+    if (!heatmapLayer || !data) return;
+    const SOM_GRID_SIZE = 22;
+    const stops = COLOR_SCHEMES[scheme].stops;
+    const isDark = document.body.getAttribute('data-theme') !== 'light';
+    heatmapLayer.style.mixBlendMode = isDark ? 'screen' : 'multiply';
+
+    let svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${SOM_GRID_SIZE}" height="${SOM_GRID_SIZE}" viewBox="0 0 ${SOM_GRID_SIZE} ${SOM_GRID_SIZE}" preserveAspectRatio="none">`;
+    for (let y = 0; y < SOM_GRID_SIZE; y++) {
+        for (let x = 0; x < SOM_GRID_SIZE; x++) {
+            svgString += `<rect x="${x}" y="${y}" width="1" height="1" fill="${interpolateColor(stops, data[y][x])}"/>`;
+        }
+    }
+    svgString += '</svg>';
+    const svgBase64 = btoa(svgString);
+    heatmapLayer.style.backgroundImage = `url("data:image/svg+xml;base64,${svgBase64}")`;
+    heatmapLayer.style.backgroundSize = '100% 100%';
+}
+
+function initSomColorButtons() {
+    document.querySelectorAll('.som-color-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            somColorScheme = parseInt(btn.dataset.scheme, 10);
+            document.querySelectorAll('.som-color-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyHeatmapScheme(somColorScheme, cachedUMatrixData);
+        });
+    });
+}
+
 // =====================================================================
-// 🌌 SOM HARİTASI "NEBULA" GÖRSELLEŞTİRMESİ (Sıfır Izgara, Tam Renk Uyumu)
-// =====================================================================
-// =====================================================================
-// 🌌 SOM HARİTASI "NEBULA" GÖRSELLEŞTİRMESİ (DÜZELTİLMİŞ MİMARİ)
+// 🌌 SOM HARİTASI "NEBULA" GÖRSELLEŞTİRMESİ
 // =====================================================================
 async function initSOMGrid() {
     const somMap = document.getElementById('somMap');
@@ -626,59 +701,24 @@ async function initSOMGrid() {
     }
 
     if (uMatrixData) {
-        // ── 2) GÖRSEL KATMAN: Arka Planda SVG Nebula Oluştur ──
-
-        // Eğer daha önce eklediysek bul, yoksa yarat
+        // ── 2) GÖRSEL KATMAN: Plasma Heatmap ──
         let heatmapLayer = document.getElementById('somHeatmapBg');
         if (!heatmapLayer) {
             heatmapLayer = document.createElement('div');
             heatmapLayer.id = 'somHeatmapBg';
-
-            // Tüm haritayı kaplar ama taşmaları önlemek için sınırları genişletilir
             heatmapLayer.style.position = 'absolute';
-            heatmapLayer.style.inset = '-15px';
+            heatmapLayer.style.inset = '-22px';
             heatmapLayer.style.zIndex = '1';
             heatmapLayer.style.pointerEvents = 'none';
-
-            // 🔥 SİHİR BURADA: Bulanıklığı SADECE arka plana veriyoruz. Yazılar net kalıyor!
-            heatmapLayer.style.filter = 'blur(16px)';
+            heatmapLayer.style.filter = 'blur(22px)';
+            // dark: screen (renkler ışık ekler), light: multiply (renkler üstüne biner)
+            const isDark = document.body.getAttribute('data-theme') !== 'light';
+            heatmapLayer.style.mixBlendMode = isDark ? 'screen' : 'multiply';
             somMap.insertBefore(heatmapLayer, somMap.firstChild);
         }
 
-        let svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${SOM_GRID_SIZE}" height="${SOM_GRID_SIZE}" viewBox="0 0 ${SOM_GRID_SIZE} ${SOM_GRID_SIZE}" preserveAspectRatio="none">`;
-
-        for (let y = 0; y < SOM_GRID_SIZE; y++) {
-            for (let x = 0; x < SOM_GRID_SIZE; x++) {
-                const val = uMatrixData[y][x]; // 0.0 - 1.0
-
-                // Renk İnterpolasyonu (Daha Tok, Koyu ve Asil Tonlar)
-                let r, g, b;
-
-                if (val < 0.4) {
-                    // Vadiler: Koyu Lacivert (6, 20, 40) -> Tok Mavi (16, 60, 100)
-                    const t = val / 0.4;
-                    r = Math.round(6 + (16 - 6) * t);
-                    g = Math.round(20 + (60 - 20) * t);
-                    b = Math.round(40 + (100 - 40) * t);
-                } else {
-                    // Dağlar: Tok Mavi (16, 60, 100) -> Gizemli Mor (120, 50, 160)
-                    const t = (val - 0.4) / 0.6;
-                    r = Math.round(16 + (120 - 16) * t);
-                    g = Math.round(60 + (50 - 60) * t);
-                    b = Math.round(100 + (160 - 100) * t);
-                }
-
-                svgString += `<rect x="${x}" y="${y}" width="1" height="1" fill="rgb(${r},${g},${b})"/>`;
-            }
-        }
-        svgString += '</svg>';
-
-        // SVG'yi base64 imajına çevir ve haritanın arka planına ata
-        const svgBase64 = btoa(svgString);
-        heatmapLayer.style.backgroundImage = `url("data:image/svg+xml;base64,${svgBase64}")`;
-        heatmapLayer.style.backgroundSize = '100% 100%';
-
-        // ❌ somMap üzerindeki hatalı filtreleri temizliyoruz
+        cachedUMatrixData = uMatrixData;
+        applyHeatmapScheme(somColorScheme, uMatrixData);
         somMap.style.filter = 'none';
         somMap.style.mixBlendMode = 'normal';
     }

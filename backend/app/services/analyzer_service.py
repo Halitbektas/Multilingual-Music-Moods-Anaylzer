@@ -201,6 +201,17 @@ def _lyrics_scores_for_song(song_id: str) -> LyricsAnalysis:
 # Confidence — şarkı vektörü ile hücre BMU mesafesine bakar
 # ═════════════════════════════════════════════════════════════════════════════
 
+def _quadrant_label(x: int, y: int, som_x: int = 30, som_y: int = 30) -> tuple:
+    """SOM hücre koordinatlarına göre (mood_label, footnote) döndürür."""
+    metrics = calculate_mood_metrics(x, y, {})
+    return metrics["label"], metrics["footnote"]
+
+
+def _confidence_for_cell(x: int, y: int) -> tuple:
+    """SOM hücre koordinatlarına göre (confidence, intensity) döndürür."""
+    metrics = calculate_mood_metrics(x, y, {})
+    return float(metrics["confidence"]), float(metrics["intensity"])
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Ana fonksiyon
