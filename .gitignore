@@ -20,3 +20,4 @@ MMMA_Massive_Dataset_AutoSave.csv
 MMMA_Direct_Tracks_Dataset.csv
 /audio_files/
 .Dockerfile
+/artists.txt

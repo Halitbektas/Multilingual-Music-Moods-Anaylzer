@@ -30,15 +30,15 @@ class Settings(BaseSettings):
     genius_token: str = ""
 
     # ── Model dosya yolları (artık ana dizin altındaki som_results varsayılır) ────
-    som_model_path: Path = MAIN_PROJECT_ROOT / "som_results" / "mmma_som_model_v2_global.pkl"
-    laser_scaler_path: Path = MAIN_PROJECT_ROOT / "som_results" / "laser_scaler_v2.pkl"
-    laser_pca_path: Path = MAIN_PROJECT_ROOT / "som_results" / "laser_pca_model_v2.pkl"
-    final_scaler_path: Path = MAIN_PROJECT_ROOT / "som_results" / "final_som_scaler_v2.pkl"
+    som_model_path: Path = MAIN_PROJECT_ROOT / "som_results" / "mmma_som_model_v3_global.pkl"
+    laser_scaler_path: Path = MAIN_PROJECT_ROOT / "som_results" / "laser_scaler_v3.pkl"
+    laser_pca_path: Path = MAIN_PROJECT_ROOT / "som_results" / "laser_pca_model_v3.pkl"
+    final_scaler_path: Path = MAIN_PROJECT_ROOT / "som_results" / "final_som_scaler_v3.pkl"
 
-    som_db_csv: Path = MAIN_PROJECT_ROOT / "som_results" / "som_music_database_v2.csv"
+    som_db_csv: Path = MAIN_PROJECT_ROOT / "som_results" / "som_music_database_v3.csv"
     
     # Veriseti de ana dizinden okunuyor
-    raw_data_csv: Path = MAIN_PROJECT_ROOT / "som_results" / "raw_music_data_v2.csv"
+    raw_data_csv: Path = MAIN_PROJECT_ROOT / "som_results" / "raw_music_data_v3.csv"
 
     # ── CORS ────────────────────────────────────────────────────────────────
     # Üretimde gerçek domain'inle değiştir.

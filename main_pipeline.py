@@ -127,7 +127,7 @@ def run_artist_pipeline(artist_name, output_csv="raw_music_dataset.csv"):
 if __name__ == "__main__":
     print("\n   MMMA MUSIC MINER V3.0 - ARTIST ONLY MODE")
 
-    artists_to_scan = ["Mabel Matiz"]
+    artists_to_scan = []
 
     if os.path.exists("artists.txt"):
         with open("artists.txt", "r", encoding="utf-8") as f:
