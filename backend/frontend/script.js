@@ -32,7 +32,7 @@ const loadingState = $('loadingState');
 const resultsSection = $('resultsSection');
 
 const errorBanner = $('errorBanner');
-const progressFill = $('progressFill');
+const loadingProgressFill = $('loadingProgressFill');
 const loadingSteps = [...document.querySelectorAll('#loadingSteps li')];
 
 let currentMode = 'spotify';
@@ -147,7 +147,7 @@ function updateLoadingStep(index) {
     step.classList.toggle('done', i < index);
   });
   const progress = [24, 46, 68, 92];
-  progressFill.style.width = `${progress[index] || 24}%`;
+  loadingProgressFill.style.width = `${progress[index] || 24}%`;
 }
 
 function resetLoading() {
@@ -176,7 +176,7 @@ function showLoadingState() {
         loadingIndex += 1;
         updateLoadingStep(loadingIndex);
     } else {
-        progressFill.style.width = '94%'; // Sonda bekle
+        loadingProgressFill.style.width = '94%'; // Sonda bekle
     }
 
     // 4 Saniyeyi geçtiyse (Şarkı DB'de yok demektir, AI devreye girmiştir)
@@ -261,21 +261,15 @@ function renderAnalysis(data) {
     albumArt.classList.add('hidden');
   }
 
-  const previewPlayer = $('previewPlayer');
-  const previewAudio = $('previewAudio');
+  // ── SPOTIFY DIŞ BAĞLANTI KONTROLÜ ──
+  const externalUrl = (data.song && data.song.spotify_url) ? data.song.spotify_url : null;
   const spotifyLink = $('spotifyOpenLink');
-  if (data.song.spotify_preview_url) {
-    previewAudio.src = data.song.spotify_preview_url;
-    previewPlayer.classList.remove('hidden');
-  } else {
-    previewAudio.removeAttribute('src');
-    previewPlayer.classList.add('hidden');
-  }
-  if (data.song.spotify_url) {
-    spotifyLink.href = data.song.spotify_url;
-    spotifyLink.classList.remove('hidden');
-  } else {
-    spotifyLink.classList.add('hidden');
+
+  if (externalUrl && spotifyLink) {
+      spotifyLink.href = externalUrl;
+      spotifyLink.classList.remove('hidden');
+  } else if (spotifyLink) {
+      spotifyLink.classList.add('hidden');
   }
 
   // SOM marker — koordinatları SOM grid'inin yüzdesine çevir
@@ -837,14 +831,14 @@ function initPopupEventListeners() {
 
 // K-Means ile hesapladığımız 8 Kıta ve Tam Merkez Koordinatları
 const NEIGHBORHOODS = [
-    { text: "Enerjik Türkçe Pop-Rock", x: 2, y: 9 },
-    { text: "Global Akustik & Slow", x: 12, y: 19 },
-    { text: "Hareketli Türkçe Pop", x: 20, y: 4 },
-    { text: "Modern Türkçe Alternatif", x: 3, y: 18 },
-    { text: "Duygusal Türkçe Klasikler", x: 19, y: 16 },
-    { text: "Türkçe Rap & Hip-Hop", x: 13, y: 2 },
-    { text: "Yüksek Voltaj Global Hits", x: 4, y: 2 },
-    { text: "Uluslararası Radyo Pop", x: 11, y: 10 }
+    { text: "Anaakım Türkçe Pop & Fantezi", x: 19, y: 2 }, // Sanatçılar: Serdar Ortaç, Ebru Gündeş
+    { text: "Global Rap & Hip-Hop", x: 3, y: 19 }, // Sanatçılar: Hayki, J. Cole
+    { text: "Enerjik Global Rock", x: 3, y: 10 }, // Sanatçılar: Red Hot Chili Peppers, Arctic Monkeys
+    { text: "Sakin Akustik & Melankoli", x: 10, y: 14 }, // Sanatçılar: Leonard Cohen, Norah Jones
+    { text: "Nostaljik & Alternatif Tınılar", x: 17, y: 19 }, // Sanatçılar: Lana Del Rey, Fikret Kızılok
+    { text: "Maksimum Voltaj (Metal & Ritim)", x: 3, y: 2 }, // Sanatçılar: Metallica, Sagopa Kajmer
+    { text: "Anadolu Rock & Melankolik Ritimler", x: 11, y: 4 }, // Sanatçılar: Sagopa Kajmer, Haluk Levent
+    { text: "Klasik Türkçe & Arabesk", x: 18, y: 11 }, // Sanatçılar: Müslüm Gürses, Sezen Aksu
 ];
 
 // Yeni Mahalle Etiketlerini Haritaya Matematiksel Olarak Basan Fonksiyon

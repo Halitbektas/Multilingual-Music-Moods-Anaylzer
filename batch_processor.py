@@ -11,7 +11,7 @@ from lyrics_pipeline import fetch_single_lyrics
 
 # AYARLAR
 GENIUS_TOKEN = os.getenv("GENIUS_TOKEN")
-CSV_PATH = "som_results/raw_music_data_v2.csv"
+CSV_PATH = "som_results/raw_music_data_v3.csv"
 SAVE_INTERVAL = 50  # Her 50 şarkıda bir kaydet
 
 

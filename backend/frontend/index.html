@@ -150,7 +150,7 @@
     <section class="container state-panel glass-panel hidden" id="loadingState">
       <div class="loader-ring"></div>
       <h2>Şarkınız Analiz Ediliyor</h2>
-      <div class="progress-bar"><span id="progressFill"></span></div>
+      <div class="progress-bar"><span id="loadingProgressFill"></span></div>
       <ul class="loading-steps" id="loadingSteps">
         <li class="active">Track özellikleri çıkarılıyor</li>
         <li>Şarkı sözü duygusu inceleniyor</li>
@@ -239,17 +239,15 @@
             <img id="albumArt" class="album-art hidden" alt="Albüm kapağı" />
           </div>
 
-          <!-- Spotify preview audio (30 sn) -->
-          <div id="previewPlayer" class="preview-player hidden">
-            <audio id="previewAudio" controls preload="none"></audio>
-            <a id="spotifyOpenLink" class="spotify-link" href="#" target="_blank" rel="noopener">
-              Spotify'da Aç →
-            </a>
-          </div>
-
           <div class="meta-list">
             <div><span>Kaynak:</span> <strong id="sourceValue">—</strong></div>
             <div><span>Dil:</span> <strong class="pill" id="languageValue">—</strong></div>
+          </div>
+
+          <div style="margin-top: 20px;">
+            <a id="spotifyOpenLink" class="spotify-link hidden" href="#" target="_blank" rel="noopener" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #18c7ff; text-decoration: none; font-weight: 600; padding: 10px 16px; background: rgba(24, 199, 255, 0.1); border-radius: 8px; border: 1px solid rgba(24, 199, 255, 0.2); transition: all 0.2s ease;">
+              Spotify'da Tamamını Dinle ↗
+            </a>
           </div>
         </article>
       </div>
@@ -300,14 +298,14 @@
           <div class="journey-field">
             <label>Hedef Ruh Hali</label>
             <select id="journeyTarget" class="journey-input">
-              <option value="2,9">Enerjik Türkçe Pop-Rock</option>
-              <option value="12,19">Global Akustik & Slow</option>
-              <option value="20,4">Hareketli Türkçe Pop</option>
-              <option value="3,18">Modern Türkçe Alternatif</option>
-              <option value="19,16">Duygusal Türkçe Klasikler</option>
-              <option value="13,2">Türkçe Rap & Hip-Hop</option>
-              <option value="4,2">Yüksek Voltaj Global Hits</option>
-              <option value="11,10">Uluslararası Radyo Pop</option>
+              <option value="19,2">Anaakım Türkçe Pop & Fantezi</option>
+              <option value="3,19">Global Rap & Hip-Hop</option>
+              <option value="3,10">Enerjik Global Rock</option>
+              <option value="10,14">Sakin Akustik & Melankoli</option>
+              <option value="17,19">Nostaljik & Alternatif Tınılar</option>
+              <option value="3,2">Maksimum Voltaj (Metal & Ritim)</option>
+              <option value="11,4">Anadolu Rock & Melankolik Ritimler</option>
+              <option value="18,11">Klasik Türkçe & Arabesk</option>
             </select>
           </div>
           <div class="journey-field">

@@ -1453,3 +1453,86 @@ body[data-theme="light"] .som-color-btn.active {
   color: #009e8e;
   box-shadow: 0 0 14px rgba(0, 180, 160, 0.18);
 }
+
+/* =====================================================================
+   🎵 SPOTIFY 30 SN PREVIEW PLAYER
+===================================================================== */
+.preview-player {
+  display: flex !important;
+  flex-direction: row !important; /* Yan yana dizilmeyi zorlar */
+  flex-wrap: nowrap !important; /* Alt satıra inmeyi yasaklar */
+  align-items: center !important;
+  gap: 15px !important;
+  margin-top: 20px !important;
+  padding: 12px 16px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.2) !important;
+}
+
+.player-info {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  min-width: 0 !important; /* Uzun metinlerin kutuyu dışarı itmesini engeller */
+  width: 100% !important;
+}
+
+.play-btn {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #18c7ff, #a855f7) !important;
+  border: none !important;
+  color: #fff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+.play-btn:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 15px rgba(24, 199, 255, 0.6) !important;
+}
+
+.player-text {
+  font-size: 12px !important;
+  color: #98a8bf !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+}
+
+.progress-bar-bg {
+  width: 100% !important;
+  height: 6px !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-radius: 3px !important;
+  overflow: hidden !important;
+  cursor: pointer;
+}
+
+.progress-bar-fill {
+  height: 100% !important;
+  width: 0% !important;
+  background: linear-gradient(90deg, #00e4a8, #18c7ff) !important;
+  transition: width 0.1s linear !important;
+  box-shadow: 0 0 8px rgba(0, 228, 168, 0.5);
+}
+
+/* Light Mode Uyumu (Siyah yazı ve çizgiler) */
+body[data-theme="light"] .preview-player {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid rgba(24, 199, 255, 0.2) !important;
+}
+body[data-theme="light"] .player-text {
+    color: #08233d !important;
+}
+body[data-theme="light"] .progress-bar-bg {
+    background: rgba(8, 35, 61, 0.1) !important;
+}
